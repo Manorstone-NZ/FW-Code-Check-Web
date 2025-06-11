@@ -1,0 +1,28 @@
+/* styles.qss - Qt Style Sheet for dashboard look */
+QWidget {
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    font-size: 14px;
+}
+QMainWindow {
+    background: #F4F6FA;
+}
+QPushButton {
+    border-radius: 8px;
+    padding: 8px 16px;
+}
+QPushButton:hover {
+    background: #0275D8;
+    color: white;
+}
+QTableWidget {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    gridline-color: #e0e0e0;
+}
+QHeaderView::section {
+    background: #F4F6FA;
+    font-weight: bold;
+    border: none;
+    padding: 8px;
+}

@@ -1,0 +1,59 @@
+{
+  "name": "first-watch-plc-code-checker-v2",
+  "version": "1.0.0",
+  "description": "A standalone desktop application for analyzing Rockwell Automation PLC files to identify security risks.",
+  "main": "src/main/electron.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "webpack --mode production",
+    "dev": "webpack serve --config webpack.config.js --mode development",
+    "test": "jest --config jest.config.js --passWithNoTests"
+  },
+  "dependencies": {
+    "electron": "^25.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.6.2",
+    "tailwindcss": "^3.0.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^14.2.1",
+    "@types/electron": "^1.4.38",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.29",
+    "@types/react": "^18.0.38",
+    "@types/react-dom": "^18.0.11",
+    "@types/xml2js": "^0.4.14",
+    "babel-loader": "^8.0.0",
+    "css-loader": "^6.0.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "style-loader": "^3.0.0",
+    "ts-jest": "^29.3.4",
+    "ts-loader": "^9.5.2",
+    "typescript": "^4.0.0",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "keywords": [
+    "PLC",
+    "security",
+    "analysis",
+    "Electron",
+    "React"
+  ],
+  "author": "First Watch Security Research",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/firstwatch/first-watch-plc-code-checker-v2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/firstwatch/first-watch-plc-code-checker-v2/issues"
+  },
+  "homepage": "https://firstwatchsecurity.com/first-watch-plc-code-checker-v2",
+  "license": "MIT"
+}
