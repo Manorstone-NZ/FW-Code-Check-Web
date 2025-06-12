@@ -8,9 +8,10 @@ def load_openai_key():
     key_path = os.path.join(os.path.dirname(__file__), '../../openai.key')
     if os.path.exists(key_path):
         with open(key_path) as f:
-            for line in f:
-                if line.strip().startswith('OPENAI_API_KEY='):
-                    os.environ['OPENAI_API_KEY'] = line.strip().split('=', 1)[1]
+            key = f.read().strip()
+            if key.startswith('OPENAI_API_KEY='):
+                key = key.split('=', 1)[1].strip()
+            os.environ['OPENAI_API_KEY'] = key
     # (dotenv can still be used for other config if needed)
     try:
         import yaml

@@ -9,6 +9,7 @@ import HistoryPage from './pages/HistoryPage';
 import LLMLogPage from './pages/LLMLogPage';
 import ComparisonsPage from './pages/ComparisonsPage';
 import AnalysisPage from './pages/AnalysisPage';
+import OTThreatIntelDashboard from './pages/OTThreatIntelDashboard';
 
 const App = () => {
   return (
@@ -28,6 +29,7 @@ const App = () => {
               <Route path="/llm-log" element={<LLMLogPage />} />
               <Route path="/comparisons" element={<ComparisonsPage />} />
               <Route path="/analysis" element={<AnalysisPage />} />
+              <Route path="/ot-threat-intel" element={<OTThreatIntelDashboard />} />
             </Routes>
           </main>
         </div>

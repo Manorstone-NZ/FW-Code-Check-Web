@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { useAnalyses, useBaselines, deleteAnalysis } from '../utils/analysisApi';
 import { useNavigate } from 'react-router-dom';
+import OTThreatIntelDashboard from './OTThreatIntelDashboard';
+import LLMLogPage from './LLMLogPage';
 
 const Dashboard = () => {
   const { analyses, loading: loadingAnalyses, error: errorAnalyses, refresh: refreshAnalyses } = useAnalyses();
@@ -63,6 +65,14 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col gap-8 font-sans">
+      {/* OT Threat Intel at the top */}
+      <div className="bg-white rounded-xl shadow-md p-8 mt-4 border border-gray-100">
+        <div className="font-semibold mb-4 text-lg text-[#232B3A]">OT Threat Intelligence (Last 4 Months)</div>
+        <div className="mb-4">
+          <OTThreatIntelDashboard />
+        </div>
+      </div>
+      {/* Main metrics grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
         {/* Total Analyses */}
         <div
@@ -105,6 +115,7 @@ const Dashboard = () => {
           <div className="text-yellow-900 mt-1 text-base font-semibold uppercase tracking-wide">Alarms</div>
         </div>
       </div>
+      {/* Most Recent Analyses */}
       <div className="bg-white rounded-xl shadow-md p-8 mt-4 border border-gray-100">
         <div className="font-semibold mb-4 text-lg text-[#232B3A]">Most Recent Analyses</div>
         <table className="min-w-full text-sm">

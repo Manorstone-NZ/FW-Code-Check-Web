@@ -10,7 +10,8 @@ const LLMLogPage: React.FC = () => {
     // @ts-ignore
     window.electron.invoke('get-llm-logs')
       .then((data: any[]) => {
-        setLogs(data);
+        // Sort logs newest to oldest
+        setLogs(Array.isArray(data) ? [...data].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')) : []);
         setLoading(false);
       })
       .catch((e: any) => {

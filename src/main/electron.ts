@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
-import path from 'path';
+import * as path from 'path';
 import { spawn } from 'child_process';
 
 let mainWindow: BrowserWindow | null;
@@ -114,4 +114,92 @@ ipcMain.handle('list-comparison-history', async (_event, analysisId, baselineId)
             }
         });
     });
+});
+
+// IPC: Get OT Threat Intel entries
+ipcMain.handle('get-ot-threat-intel-entries', async () => {
+  return new Promise((resolve, reject) => {
+    const py = spawn('python3', [
+      path.join(__dirname, '../python/db.py'), '--list-ot-threat-intel'
+    ], {
+      cwd: path.resolve(__dirname, '../..'),
+      env: process.env
+    });
+    let data = '';
+    py.stdout.on('data', chunk => data += chunk);
+    py.stderr.on('data', err => console.error(err.toString()));
+    py.on('close', () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+});
+
+// IPC: Get last sync time for OT Threat Intel
+ipcMain.handle('get-ot-threat-intel-last-sync', async () => {
+  return new Promise((resolve, reject) => {
+    const py = spawn('python3', [
+      path.join(__dirname, '../python/db.py'), '--get-ot-threat-intel-last-sync'
+    ], {
+      cwd: path.resolve(__dirname, '../..'),
+      env: process.env
+    });
+    let data = '';
+    py.stdout.on('data', chunk => data += chunk);
+    py.stderr.on('data', err => console.error(err.toString()));
+    py.on('close', () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+});
+
+// IPC: Sync OT Threat Intel
+ipcMain.handle('sync-ot-threat-intel', async () => {
+  return new Promise((resolve, reject) => {
+    const py = spawn('python3', [
+      path.join(__dirname, '../python/sync_ot_threat_intel.py')
+    ], {
+      cwd: path.resolve(__dirname, '../..'),
+      env: process.env
+    });
+    let data = '';
+    py.stdout.on('data', chunk => data += chunk);
+    py.stderr.on('data', err => console.error(err.toString()));
+    py.on('close', () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+});
+
+// IPC: Update OT Threat Intel entry (curation)
+ipcMain.handle('update-ot-threat-intel-entry', async (_event, entry) => {
+  return new Promise((resolve, reject) => {
+    const py = spawn('python3', [
+      path.join(__dirname, '../python/db.py'), '--update-ot-threat-intel', JSON.stringify(entry)
+    ], {
+      cwd: path.resolve(__dirname, '../..'),
+      env: process.env
+    });
+    let data = '';
+    py.stdout.on('data', chunk => data += chunk);
+    py.stderr.on('data', err => console.error(err.toString()));
+    py.on('close', () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
 });

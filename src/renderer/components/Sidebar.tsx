@@ -8,7 +8,8 @@ const navItems = [
   { label: 'Baselines', path: '/baselines' },
   { label: 'Analysis', path: '/analysis' },
   { label: 'Comparisons', path: '/comparisons' },
-  { label: 'LLM Log', path: '/llm-log' },
+  { label: 'OT Threat Intel', path: '/ot-threat-intel' }, // New navigation link
+  { label: 'LLM Log', path: '/llm-log' }, // LLM Log now last
 ];
 
 const Sidebar = () => {

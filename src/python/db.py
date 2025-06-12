@@ -62,6 +62,44 @@ def init_db():
                 FOREIGN KEY(baselineId) REFERENCES baselines(id)
             )
         ''')
+        # Migration: add analysisFileName and baselineFileName if missing
+        try:
+            c.execute('ALTER TABLE comparison_history ADD COLUMN analysisFileName TEXT')
+        except Exception:
+            pass  # Already exists
+        try:
+            c.execute('ALTER TABLE comparison_history ADD COLUMN baselineFileName TEXT')
+        except Exception:
+            pass  # Already exists
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS ot_threat_intel (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                summary TEXT,
+                source TEXT,
+                retrieved_at TEXT,
+                affected_vendors TEXT,
+                threat_type TEXT,
+                severity TEXT,
+                industrial_protocols TEXT,
+                system_targets TEXT,
+                tags TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                site_relevance TEXT,
+                response_notes TEXT,
+                llm_response TEXT
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                action TEXT,
+                user TEXT,
+                details TEXT
+            )
+        ''')
         conn.commit()
 
 def get_analysis_hash(analysis_json):
@@ -230,6 +268,110 @@ def delete_comparison_history(comparison_id):
         conn.commit()
         return {'ok': True, 'deleted_id': comparison_id}
 
+def save_ot_threat_intel(entry):
+    with get_connection() as conn:
+        c = conn.cursor()
+        # Prevent duplicate: unique on (title, summary, source, threat_type, severity, affected_vendors, industrial_protocols, system_targets, tags)
+        c.execute('''SELECT id FROM ot_threat_intel WHERE title = ? AND summary = ? AND source = ? AND threat_type = ? AND severity = ? AND affected_vendors = ? AND industrial_protocols = ? AND system_targets = ? AND tags = ?''', (
+            entry['title'], entry['summary'], entry['source'], entry.get('threat_type'), entry.get('severity'),
+            json.dumps(entry.get('affected_vendors', [])), json.dumps(entry.get('industrial_protocols', [])),
+            json.dumps(entry.get('system_targets', [])), json.dumps(entry.get('tags', []))
+        ))
+        if c.fetchone():
+            return None
+        c.execute('''
+            INSERT INTO ot_threat_intel (id, title, summary, source, retrieved_at, affected_vendors, threat_type, severity, industrial_protocols, system_targets, tags, created_at, updated_at, site_relevance, response_notes, llm_response)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            entry['id'], entry['title'], entry['summary'], entry['source'], entry['retrieved_at'],
+            json.dumps(entry.get('affected_vendors', [])), entry.get('threat_type'), entry.get('severity'),
+            json.dumps(entry.get('industrial_protocols', [])), json.dumps(entry.get('system_targets', [])),
+            json.dumps(entry.get('tags', [])), entry['created_at'], entry['updated_at'],
+            entry.get('site_relevance'), entry.get('response_notes'), entry.get('llm_response')
+        ))
+        conn.commit()
+        return entry['id']
+
+def list_ot_threat_intel():
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT * FROM ot_threat_intel ORDER BY retrieved_at DESC')
+        return [
+            {
+                'id': row[0],
+                'title': row[1],
+                'summary': row[2],
+                'source': row[3],
+                'retrieved_at': row[4],
+                'affected_vendors': json.loads(row[5] or '[]'),
+                'threat_type': row[6],
+                'severity': row[7],
+                'industrial_protocols': json.loads(row[8] or '[]'),
+                'system_targets': json.loads(row[9] or '[]'),
+                'tags': json.loads(row[10] or '[]'),
+                'created_at': row[11],
+                'updated_at': row[12],
+                'site_relevance': row[13],
+                'response_notes': row[14],
+                'llm_response': row[15],
+            }
+            for row in c.fetchall()
+        ]
+
+def get_ot_threat_intel_last_sync():
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT MAX(retrieved_at) FROM ot_threat_intel')
+        row = c.fetchone()
+        return row[0] if row and row[0] else None
+
+def log_audit(action, user, details=None):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO audit_log (timestamp, action, user, details)
+            VALUES (?, ?, ?, ?)
+        ''', (datetime.now().isoformat(), action, user, json.dumps(details) if details else None))
+        conn.commit()
+
+def update_ot_threat_intel(entry):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('''
+            UPDATE ot_threat_intel SET
+                tags = ?,
+                site_relevance = ?,
+                response_notes = ?,
+                updated_at = ?
+            WHERE id = ?
+        ''', (
+            json.dumps(entry.get('tags', [])),
+            entry.get('site_relevance'),
+            entry.get('response_notes'),
+            datetime.now().isoformat(),
+            entry['id']
+        ))
+        conn.commit()
+    log_audit('curation_update', entry.get('curation_user', 'analyst'), {'id': entry['id'], 'tags': entry.get('tags'), 'site_relevance': entry.get('site_relevance')})
+    return {'ok': True, 'id': entry['id']}
+
+def clear_ot_threat_intel():
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('DELETE FROM ot_threat_intel')
+        conn.commit()
+
+def clear_all_data():
+    """Delete all rows from all tables in the database."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('DELETE FROM analyses')
+        c.execute('DELETE FROM baselines')
+        c.execute('DELETE FROM comparison_history')
+        c.execute('DELETE FROM ot_threat_intel')
+        c.execute('DELETE FROM audit_log')
+        conn.commit()
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--list-analyses':
         from db import list_analyses
@@ -271,10 +413,11 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--list-comparison-history':
         from db import list_comparison_history
         def parse_id(arg):
-            return int(arg) if arg and arg != '' else None
+            return int(arg) if arg and arg != '' and arg != 'null' else None
         analysis_id = parse_id(sys.argv[2]) if len(sys.argv) > 2 else None
         baseline_id = parse_id(sys.argv[3]) if len(sys.argv) > 3 else None
-        print(json.dumps(list_comparison_history(analysis_id, baseline_id)))
+        result = list_comparison_history(analysis_id, baseline_id)
+        print(json.dumps(result))
         return
     if len(sys.argv) > 4 and sys.argv[1] == '--save-analysis':
         from db import save_analysis
@@ -304,6 +447,27 @@ def main():
         baseline_file_name = sys.argv[7] if len(sys.argv) > 7 else None
         result = save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name, baseline_file_name)
         print(json.dumps({'ok': True, 'id': result}))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--list-ot-threat-intel':
+        print(json.dumps(list_ot_threat_intel()))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--get-ot-threat-intel-last-sync':
+        print(json.dumps(get_ot_threat_intel_last_sync()))
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == '--update-ot-threat-intel':
+        entry = json.loads(sys.argv[2])
+        from db import update_ot_threat_intel
+        print(json.dumps(update_ot_threat_intel(entry)))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--clear-ot-threat-intel':
+        from db import clear_ot_threat_intel
+        clear_ot_threat_intel()
+        print(json.dumps({'ok': True, 'cleared': True}))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--reset-db':
+        from db import clear_all_data
+        clear_all_data()
+        print(json.dumps({'ok': True, 'message': 'All data cleared from database.'}))
         return
     init_db()
     print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_PATH}'}))
