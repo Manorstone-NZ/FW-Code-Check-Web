@@ -7,8 +7,8 @@ let mainWindow = null;
 
 const createWindow = () => {
     mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1280,
+        height: 900,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -345,6 +345,66 @@ ipcMain.handle('get-comparison-result', async (_event, id) => {
     return new Promise((resolve, reject) => {
         const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
             path.join(__dirname, '../python/db.py'), '--get-comparison-result', String(id)
+        ], {
+            cwd: path.resolve(__dirname, '../..'),
+            env: process.env
+        });
+        let data = '';
+        py.stdout.on('data', chunk => data += chunk);
+        py.stderr.on('data', err => console.error(err.toString()));
+        py.on('close', () => {
+            try {
+                resolve(JSON.parse(data));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+});
+
+// IPC: Reset database
+const DB_PATH = path.join(__dirname, '../../firstwatch.db');
+
+ipcMain.handle('reset-db', async () => {
+    return new Promise((resolve, reject) => {
+        try {
+            // Remove the database file if it exists
+            if (fs.existsSync(DB_PATH)) {
+                fs.unlinkSync(DB_PATH);
+            }
+            // Reinitialize the database schema using analyzer.py --init-db
+            const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
+                path.join(__dirname, '../python/analyzer.py'), '--init-db'
+            ], {
+                cwd: path.resolve(__dirname, '../..'),
+                env: process.env
+            });
+            let data = '';
+            let error = '';
+            py.stdout.on('data', chunk => data += chunk);
+            py.stderr.on('data', chunk => error += chunk);
+            py.on('close', (code) => {
+                if (code === 0) {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(e);
+                    }
+                } else {
+                    reject(error || 'Failed to reinitialize database');
+                }
+            });
+        } catch (e) {
+            reject(e);
+        }
+    });
+});
+
+// IPC: Save analysis
+ipcMain.handle('save-analysis', async (_event, fileName, status, analysis_json, filePath) => {
+    return new Promise((resolve, reject) => {
+        const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
+            path.join(__dirname, '../python/db.py'), '--save-analysis', fileName, status, JSON.stringify(analysis_json), filePath || ''
         ], {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env

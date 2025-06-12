@@ -205,6 +205,18 @@ def main():
         baseline_id = parse_id(sys.argv[3]) if len(sys.argv) > 3 else None
         print(json.dumps(list_comparison_history(analysis_id, baseline_id)))
         return
+    if len(sys.argv) > 4 and sys.argv[1] == '--save-analysis':
+        from db import save_analysis
+        file_name = sys.argv[2]
+        status = sys.argv[3]
+        try:
+            analysis_json = json.loads(sys.argv[4])
+        except Exception:
+            analysis_json = {}
+        file_path = sys.argv[5] if len(sys.argv) > 5 else None
+        analysis_id = save_analysis(file_name, status, analysis_json, file_path)
+        print(json.dumps({'ok': True, 'analysis_id': analysis_id}))
+        return
     init_db()
     print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_PATH}'}))
 

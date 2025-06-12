@@ -146,6 +146,39 @@ const getLLMStatus = (llm: any) => {
   return { status: 'No LLM response', ok: false, error: null };
 };
 
+// Extract instruction_analysis from analysis or llm_results
+const extractInstructionAnalysis = (analysis: any, llm: string): any[] => {
+  // 1. Try top-level field (already normalized by normalizeInstructionAnalysis)
+  let instr = analysis.analysis_json?.instruction_analysis;
+  if (Array.isArray(instr) && instr.length > 0) return instr;
+  // 2. Try to extract from llm_results as JSON code block or array
+  if (typeof llm === 'string' && llm.includes('instruction_analysis')) {
+    // Try to find a JSON array in a code block
+    const jsonBlock = (() => {
+      const codeBlock = llm.match(/```json\s*([\s\S]+?)```/i);
+      if (codeBlock && codeBlock[1]) return codeBlock[1];
+      // Fallback: look for instruction_analysis: [ ... ]
+      const arrMatch = llm.match(/instruction_analysis\s*[:=]\s*(\[[\s\S]*?\])/);
+      if (arrMatch && arrMatch[1]) return arrMatch[1];
+      return null;
+    })();
+    if (jsonBlock) {
+      try {
+        const arr = JSON.parse(jsonBlock);
+        if (Array.isArray(arr)) return arr;
+      } catch {
+        // Try eval as fallback
+        try {
+          // eslint-disable-next-line no-eval
+          const arr = eval(jsonBlock);
+          if (Array.isArray(arr)) return arr;
+        } catch {}
+      }
+    }
+  }
+  return [];
+};
+
 const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   if (!analysis) return null;
   const { fileName, status, date, analysis_json } = analysis;
@@ -185,12 +218,15 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   const hasCritical = vulnList.some((v: any) => typeof v === 'string' ? v.toLowerCase().includes('critical') : JSON.stringify(v).toLowerCase().includes('critical'));
   const hasHigh = vulnList.some((v: any) => typeof v === 'string' ? v.toLowerCase().includes('high') : JSON.stringify(v).toLowerCase().includes('high'));
 
+  // Robustly extract instruction_analysis from all possible sources
+  const instructionAnalysis = extractInstructionAnalysis(analysis, typeof llm === 'string' ? llm : '');
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* DEBUG: Show instruction_analysis raw data */}
       <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-xs text-gray-700">
         <strong>Debug: instruction_analysis</strong>
-        <pre className="whitespace-pre-wrap break-all mt-1">{JSON.stringify(analysis.analysis_json?.instruction_analysis, null, 2)}</pre>
+        <pre className="whitespace-pre-wrap break-all mt-1">{JSON.stringify(instructionAnalysis, null, 2)}</pre>
       </div>
       {/* Banner for critical/high vulnerabilities */}
       {(hasCritical || hasHigh) && (
@@ -276,7 +312,7 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
         </SectionCard>
       )}
       {/* Instruction-level Security Analysis (table) */}
-      {Array.isArray(analysis.analysis_json?.instruction_analysis) && analysis.analysis_json.instruction_analysis.length > 0 ? (
+      {Array.isArray(instructionAnalysis) && instructionAnalysis.length > 0 ? (
         <SectionCard title="Instruction-level Security Analysis">
           <div className="overflow-x-auto overflow-y-auto w-full bg-white rounded-b-xl border-t border-gray-100" style={{maxHeight: '340px', minHeight: '120px', padding: '0 1.5rem 1.5rem 1.5rem', boxSizing: 'border-box'}}>
             <table className="table-auto w-full text-sm border-separate border-spacing-0 shadow-sm">
@@ -288,16 +324,16 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
                 </tr>
               </thead>
               <tbody>
-                {analysis.analysis_json.instruction_analysis.map((item: any, idx: number) => (
+                {instructionAnalysis.map((item: any, idx: number) => (
                   <tr key={idx} className="even:bg-gray-50 hover:bg-blue-50 transition">
                     <td className="p-4 font-mono text-xs text-gray-800 align-top max-w-xs break-all border-b border-gray-100">{item.instruction}</td>
                     <td className="p-4 text-gray-900 align-top max-w-md break-words border-b border-gray-100">{item.insight}</td>
                     <td className="p-4 font-semibold align-top border-b border-gray-100">
                       <span className={
-                        item.risk_level.toLowerCase() === 'critical' ? 'text-red-700 bg-red-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level.toLowerCase() === 'high' ? 'text-orange-700 bg-orange-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level.toLowerCase() === 'medium' ? 'text-yellow-800 bg-yellow-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level.toLowerCase() === 'low' ? 'text-green-700 bg-green-50 px-3 py-1 rounded-full font-bold' :
+                        item.risk_level && item.risk_level.toLowerCase() === 'critical' ? 'text-red-700 bg-red-50 px-3 py-1 rounded-full font-bold' :
+                        item.risk_level && item.risk_level.toLowerCase() === 'high' ? 'text-orange-700 bg-orange-50 px-3 py-1 rounded-full font-bold' :
+                        item.risk_level && item.risk_level.toLowerCase() === 'medium' ? 'text-yellow-800 bg-yellow-50 px-3 py-1 rounded-full font-bold' :
+                        item.risk_level && item.risk_level.toLowerCase() === 'low' ? 'text-green-700 bg-green-50 px-3 py-1 rounded-full font-bold' :
                         'text-gray-800 px-3 py-1 rounded-full font-bold'
                       }>{item.risk_level}</span>
                     </td>
