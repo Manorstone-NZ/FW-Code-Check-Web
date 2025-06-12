@@ -72,11 +72,19 @@ const FileUploader = () => {
         }
     };
 
+    // Define a shared button style for consistency
+    const baseBtn = "px-6 py-3 min-w-[160px] rounded-lg font-semibold shadow transition-colors duration-200 flex items-center justify-center gap-2 text-base";
+    const btnPrimary = `${baseBtn} bg-blue-600 text-white hover:bg-blue-700`;
+    const btnSuccess = `${baseBtn} bg-green-600 text-white hover:bg-green-700`;
+    const btnSecondary = `${baseBtn} bg-white border-2 border-green-600 text-green-600 hover:bg-green-50 hover:border-green-700`;
+    const btnGray = `${baseBtn} bg-gray-600 text-white hover:bg-gray-700`;
+    const btnDanger = `${baseBtn} bg-red-600 text-white hover:bg-red-700`;
+
     return (
         <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto mt-8">
             <h2 className="mb-4 text-2xl font-bold text-[#0275D8]">Upload PLC Files or Import Analysis</h2>
             <div className="flex flex-row gap-4 mb-6 w-full justify-center">
-                <label className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-700 font-semibold shadow transition">
+                <label className={btnPrimary + " cursor-pointer"}>
                     Upload JSON Result
                     <input
                         type="file"
@@ -92,7 +100,7 @@ const FileUploader = () => {
                     className="hidden"
                     id="plc-upload-input"
                 />
-                <label htmlFor="plc-upload-input" className="px-4 py-2 bg-green-600 text-white rounded cursor-pointer hover:bg-green-700 font-semibold shadow transition">
+                <label htmlFor="plc-upload-input" className={btnSuccess + " cursor-pointer"}>
                     Upload PLC File
                 </label>
             </div>
@@ -112,7 +120,7 @@ const FileUploader = () => {
                     </div>
                     <div className="flex flex-row flex-wrap gap-4 mt-6 w-full justify-center">
                         <button
-                            className="px-5 py-2 bg-green-600 text-white rounded-lg font-semibold shadow hover:bg-green-700 disabled:opacity-60 transition"
+                            className={btnSuccess}
                             disabled={saved}
                             onClick={async () => {
                                 if (fileName && result) {
@@ -131,8 +139,7 @@ const FileUploader = () => {
                             {saved ? 'Saved to Database' : 'Save Analysis to Database'}
                         </button>
                         <button
-                            className="px-5 py-2 bg-white border border-green-700 text-green-700 rounded-lg font-semibold shadow hover:bg-green-50 hover:border-green-800 transition flex items-center gap-2"
-                            style={{ minWidth: 180 }}
+                            className={btnSuccess}
                             onClick={async () => {
                                 if (fileName && result) {
                                     try {
@@ -144,11 +151,11 @@ const FileUploader = () => {
                                 }
                             }}
                         >
-                            <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="3" fill="#27ae60"/><path d="M7 10.5L9 13L13 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                             Save as Baseline
                         </button>
                         <button
-                            className="px-5 py-2 bg-gray-500 text-white rounded-lg font-semibold shadow hover:bg-gray-700 transition"
+                            className={btnGray}
+                            style={{ opacity: 1, visibility: 'visible', display: 'flex', backgroundColor: '#6B7280', color: '#fff', border: 'none' }}
                             onClick={() => {
                                 if (result && fileName) {
                                     const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
@@ -166,7 +173,7 @@ const FileUploader = () => {
                             Save to File
                         </button>
                         <button
-                            className="px-5 py-2 bg-blue-700 text-white rounded-lg font-semibold shadow hover:bg-blue-900 transition"
+                            className={btnPrimary}
                             onClick={() => setShowRaw(true)}
                         >
                             Show Raw Output
@@ -176,14 +183,14 @@ const FileUploader = () => {
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
                             <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 relative">
                                 <button
-                                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl font-bold"
+                                    className={btnDanger + " absolute top-4 right-4 w-10 h-10 !p-0 flex items-center justify-center text-2xl"}
                                     onClick={() => setShowRaw(false)}
                                     aria-label="Close"
                                 >×</button>
                                 <h2 className="text-lg font-bold mb-4">Raw LLM Output</h2>
                                 <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto max-h-96">{JSON.stringify(result, null, 2)}</pre>
                                 <button
-                                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    className={btnPrimary + " mt-4"}
                                     onClick={() => {
                                         navigator.clipboard.writeText(JSON.stringify(result, null, 2));
                                         alert('Raw output copied to clipboard!');
