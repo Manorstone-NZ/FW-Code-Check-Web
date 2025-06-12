@@ -104,6 +104,36 @@ const CompareAnalysisToBaseline = ({ analysisId }: { analysisId: number }) => {
     return sections;
   };
 
+  // Helper to get highest severity for an analysis or baseline (copied from AnalysisPage)
+  function getHighestSeverity(obj: any): { label: string, color: string } {
+    const levels = ['critical', 'high', 'medium', 'low'];
+    const colors: Record<string, string> = {
+      critical: 'bg-red-700 text-white',
+      high: 'bg-yellow-500 text-black',
+      medium: 'bg-green-500 text-white',
+      low: 'bg-blue-500 text-white',
+    };
+    let found: string | null = null;
+    if (Array.isArray(obj.analysis_json?.instruction_analysis)) {
+      for (const level of levels) {
+        if (obj.analysis_json.instruction_analysis.some((i: any) => (i.risk_level || '').toLowerCase() === level)) {
+          found = level;
+          break;
+        }
+      }
+    }
+    if (!found && Array.isArray(obj.analysis_json?.vulnerabilities)) {
+      for (const level of levels) {
+        if (obj.analysis_json.vulnerabilities.some((v: any) => (typeof v === 'string' ? v.toLowerCase().includes(level) : JSON.stringify(v).toLowerCase().includes(level)))) {
+          found = level;
+          break;
+        }
+      }
+    }
+    if (!found) return { label: 'None', color: 'bg-gray-400 text-white' };
+    return { label: found.charAt(0).toUpperCase() + found.slice(1), color: colors[found] };
+  }
+
   return (
     <div>
       <label className="block mb-2">Select Baseline to Compare:</label>
@@ -120,13 +150,27 @@ const CompareAnalysisToBaseline = ({ analysisId }: { analysisId: number }) => {
       {diff && <div className="mb-2 font-mono text-sm">{diff}</div>}
       {analysis && baseline && (
         <>
+          <div className="grid grid-cols-2 gap-4 mb-2">
+            <div className="flex items-center gap-2 bg-gray-50 rounded p-2 border">
+              <span className="font-semibold">Analysis:</span>
+              <span>{analysis.fileName}</span>
+              <span className="text-xs text-gray-500">{analysis.date}</span>
+              <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 ${getHighestSeverity(analysis).color}`}>{getHighestSeverity(analysis).label}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-50 rounded p-2 border">
+              <span className="font-semibold">Baseline:</span>
+              <span>{baseline.fileName}</span>
+              <span className="text-xs text-gray-500">{baseline.date}</span>
+              <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 ${getHighestSeverity(baseline).color}`}>{getHighestSeverity(baseline).label}</span>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <h4 className="font-semibold mb-1">Analysis</h4>
+              <h4 className="font-semibold mb-1">Analysis (Raw JSON)</h4>
               <pre className="bg-white p-2 rounded text-xs overflow-x-auto max-h-64">{JSON.stringify(analysis, null, 2)}</pre>
             </div>
             <div>
-              <h4 className="font-semibold mb-1">Baseline</h4>
+              <h4 className="font-semibold mb-1">Baseline (Raw JSON)</h4>
               <pre className="bg-white p-2 rounded text-xs overflow-x-auto max-h-64">{JSON.stringify(baseline, null, 2)}</pre>
             </div>
           </div>

@@ -14,7 +14,6 @@ const navItems = [
 const Sidebar = () => {
   const location = useLocation();
   const { status: llmStatus, error: llmError } = useLLMStatus(60000); // 60s poll
-  const [showLLM, setShowLLM] = React.useState(true);
   const [clearingDb, setClearingDb] = React.useState(false);
 
   async function handleClearDb() {
@@ -46,22 +45,14 @@ const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
-      <button
-        className={`mt-4 mb-2 px-4 py-2 rounded bg-[#31405A] hover:bg-[#0275D8] text-white text-sm font-semibold transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 ${showLLM ? '' : 'opacity-70'}`}
-        onClick={() => setShowLLM(v => !v)}
-        aria-pressed={showLLM}
-      >
-        {showLLM ? 'Hide LLM Status' : 'Show LLM Status'}
-      </button>
-      {showLLM && (
-        <div className="mt-2 flex flex-col items-center">
-          <span className={`text-xs font-semibold px-2 py-1 rounded ${llmStatus === 'online' ? 'bg-green-600 text-white' : llmStatus === 'offline' ? 'bg-red-600 text-white' : 'bg-gray-500 text-white'}`}
-            title={llmError ? `LLM error: ${llmError}` : llmStatus === 'online' ? 'LLM is online' : 'LLM status unknown'}>
-            LLM: {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'}
-          </span>
-          {llmError && <span className="text-xs text-red-300 mt-1">{llmError}</span>}
-        </div>
-      )}
+      {/* Remove Hide LLM Status button and always show LLM status */}
+      <div className="mt-2 flex flex-col items-center">
+        <span className={`text-xs font-semibold px-2 py-1 rounded ${llmStatus === 'online' ? 'bg-green-600 text-white' : llmStatus === 'offline' ? 'bg-red-600 text-white' : 'bg-gray-500 text-white'}`}
+          title={llmError ? `LLM error: ${llmError}` : llmStatus === 'online' ? 'LLM is online' : 'LLM status unknown'}>
+          LLM: {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'}
+        </span>
+        {llmError && <span className="text-xs text-red-300 mt-1">{llmError}</span>}
+      </div>
       <div className="mt-auto text-xs text-gray-400 text-center pt-8 select-none">
         <button
           className={`w-full mb-4 px-4 py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold shadow transition ${clearingDb ? 'opacity-50 cursor-not-allowed' : ''}`}

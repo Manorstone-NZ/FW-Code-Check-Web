@@ -231,12 +231,38 @@ const extractInstructionAnalysis = (analysis: any, llm: string): any[] => {
   return [];
 };
 
-const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
-  if (!analysis) return null;
-  const { fileName, status, date, analysis_json } = analysis;
-
+// Extract LLM result from various possible structures in analysis
+const extractLLMResult = (analysis: any): string | null => {
+  // Try all possible locations for llm_results
+  let llm = analysis?.analysis_json?.llm_results
+    || analysis?.llm_results
+    || analysis?.llm_result
+    || analysis?.analysis_json?.llm_result;
+  // If still not found, try to find a string value in analysis_json that looks like an LLM result
+  if (!llm && analysis?.analysis_json && typeof analysis.analysis_json === 'object') {
+    for (const key of Object.keys(analysis.analysis_json)) {
+      const val = analysis.analysis_json[key];
+      if (typeof val === 'string' &&
+        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || val.includes('CYBER SECURITY KEY FINDINGS'))
+      ) {
+        llm = val;
+        break;
+      }
+    }
+  }
+  // Fallback: check top-level keys for LLM result
+  if (!llm && typeof analysis === 'object') {
+    for (const key of Object.keys(analysis)) {
+      const val = analysis[key];
+      if (typeof val === 'string' &&
+        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || val.includes('CYBER SECURITY KEY FINDINGS'))
+      ) {
+        llm = val;
+        break;
+      }
+    }
+  }
   // Patch: If llm_results is empty, try to parse filePath as JSON and extract llm_results from there
-  let llm = analysis.analysis_json?.llm_results;
   if ((!llm || llm === "") && typeof analysis.filePath === "string") {
     try {
       const parsed = JSON.parse(analysis.filePath);
@@ -247,6 +273,23 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
       // Ignore parse errors
     }
   }
+  return typeof llm === 'string' ? llm : null;
+};
+
+const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
+  if (!analysis) return null;
+  const { fileName, status, date, analysis_json } = analysis;
+
+  // Add badge for Analysis or Baseline
+  let typeLabel = 'Analysis';
+  let typeColor = 'bg-blue-600';
+  if (status && typeof status === 'string' && status.toLowerCase().includes('baseline')) {
+    typeLabel = 'Baseline';
+    typeColor = 'bg-green-600';
+  }
+
+  // Use robust LLM extraction
+  const llm = extractLLMResult(analysis);
   const llmStatus = getLLMStatus(llm);
   const llmSections = parseNewLLMSections(typeof llm === 'string' ? llm : '');
   const llmSectionsRaw = parseLLMSectionsRaw(typeof llm === 'string' ? llm : '');
@@ -288,7 +331,13 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
+      {/* Type badge */}
+      <div className="flex items-center mb-4">
+        <span className={`inline-block px-3 py-1 text-xs font-semibold text-white rounded-full mr-3 ${typeColor}`}>{typeLabel}</span>
+        <span className="text-gray-700 font-bold text-lg truncate">{fileName}</span>
+        {date && <span className="ml-4 text-xs text-gray-400">{date}</span>}
+      </div>
       {/* Banner for critical/high vulnerabilities */}
       {(hasCritical || hasHigh) && (
         <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded text-sm text-red-800 font-semibold flex items-center gap-2">
@@ -298,13 +347,6 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
           </span>
         </div>
       )}
-      {/* File/Status Header */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div>
-          <div className="text-lg font-bold text-[#232B3A]">{fileName}</div>
-          <div className="text-xs text-gray-500">{date} &middot; Status: <span className="font-semibold text-gray-700">{status}</span></div>
-        </div>
-      </div>
       {/* Executive Summary */}
       {cleanedLlmSections['EXECUTIVE SUMMARY'] && (
         <SectionCard title="Executive Summary">

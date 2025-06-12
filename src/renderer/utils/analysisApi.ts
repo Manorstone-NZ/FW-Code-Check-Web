@@ -61,9 +61,9 @@ export async function getBaselineById(id: number) {
     return await window.electron.invoke('get-baseline', id);
 }
 
-export async function saveBaseline(fileName: string, originalName?: string, filePath?: string) {
+export async function saveBaseline(fileName: string, originalName?: string, filePath?: string, analysis_json?: any) {
     // @ts-ignore
-    return await window.electron.invoke('save-baseline', fileName, originalName, filePath);
+    return await window.electron.invoke('save-baseline', fileName, originalName, filePath, analysis_json);
 }
 
 export async function deleteBaseline(id: number) {

@@ -361,14 +361,7 @@ Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'
         analysis_result = ensure_analysis_fields(rule_based)
         result_obj = dict(analysis_result)
         result_obj['ok'] = True
-        try:
-            save_analysis(file_path, "complete", analysis_result, file_path)
-            log_info(f'Analysis saved (ID: {analysis_result.get("id")})')
-            result_obj['id'] = analysis_result.get('id')
-        except Exception as e:
-            log_error(f'Failed to save analysis: {e}')
-            result_obj['ok'] = False
-            result_obj['error'] = f'Failed to save analysis: {str(e)}'
+        # Do NOT save automatically here; only return the result to the frontend
         print(json.dumps(result_obj))
         return
     print(json.dumps({'ok': False, 'error': 'No file specified for analysis.'}))

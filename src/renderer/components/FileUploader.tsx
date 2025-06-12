@@ -143,7 +143,8 @@ const FileUploader = () => {
                             onClick={async () => {
                                 if (fileName && result) {
                                     try {
-                                        await saveBaseline(fileName, fileName, filePath || '');
+                                        // Save the full analysis result as analysis_json
+                                        await saveBaseline(fileName, fileName, filePath || '', result);
                                         alert('Saved as baseline!');
                                     } catch (e) {
                                         alert('Failed to save as baseline');

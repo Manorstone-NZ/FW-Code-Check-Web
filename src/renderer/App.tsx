@@ -8,6 +8,7 @@ import BaselinesPage from './pages/BaselinesPage';
 import HistoryPage from './pages/HistoryPage';
 import LLMLogPage from './pages/LLMLogPage';
 import ComparisonsPage from './pages/ComparisonsPage';
+import AnalysisPage from './pages/AnalysisPage';
 
 const App = () => {
   return (
@@ -26,6 +27,7 @@ const App = () => {
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/llm-log" element={<LLMLogPage />} />
               <Route path="/comparisons" element={<ComparisonsPage />} />
+              <Route path="/analysis" element={<AnalysisPage />} />
             </Routes>
           </main>
         </div>

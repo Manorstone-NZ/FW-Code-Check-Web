@@ -14,11 +14,6 @@ const AnalysisPage = () => {
   const [highlightRow, setHighlightRow] = React.useState<number | null>(null);
   const location = useLocation();
 
-  React.useEffect(() => {
-    debugLog('navigate-analysis');
-    setLastUpdated(new Date());
-  }, []);
-
   // Filtering logic based on query params
   const params = new URLSearchParams(location.search);
   const showVuln = params.get('vuln') === '1';
@@ -46,6 +41,33 @@ const AnalysisPage = () => {
     });
   }
 
+  React.useEffect(() => {
+    debugLog('navigate-analysis', {
+      analysesCount: analyses.length,
+      filteredAnalysesCount: filteredAnalyses.length,
+      loading,
+      error
+    });
+    setLastUpdated(new Date());
+  }, [analyses, filteredAnalyses, loading, error]);
+
+  // Auto-select the most recent (or first) analysis by default
+  React.useEffect(() => {
+    if (!details && filteredAnalyses.length > 0) {
+      // Sort by date descending, fallback to id descending if no date
+      const sorted = [...filteredAnalyses].sort((a, b) => {
+        if (a.date && b.date) return b.date.localeCompare(a.date);
+        return (b.id || 0) - (a.id || 0);
+      });
+      const first = sorted[0];
+      if (first) {
+        // Use handleView to normalize and set details
+        handleView(first.id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredAnalyses]);
+
   const handleView = async (id: number) => {
     setDetails(null);
     debugLog('analysis-list-view-details', { analysisId: id });
@@ -71,8 +93,42 @@ const AnalysisPage = () => {
     setLastUpdated(new Date());
   };
 
+  // Helper to get highest severity for an analysis (copied from Dashboard)
+  function getHighestSeverity(analysis: any): { label: string, color: string } {
+    const levels = ['critical', 'high', 'medium', 'low'];
+    const colors: Record<string, string> = {
+      critical: 'bg-red-700 text-white',
+      high: 'bg-yellow-500 text-black',
+      medium: 'bg-green-500 text-white',
+      low: 'bg-blue-500 text-white',
+    };
+    let found: string | null = null;
+    if (Array.isArray(analysis.analysis_json?.instruction_analysis)) {
+      for (const level of levels) {
+        if (analysis.analysis_json.instruction_analysis.some((i: any) => (i.risk_level || '').toLowerCase() === level)) {
+          found = level;
+          break;
+        }
+      }
+    }
+    if (!found && Array.isArray(analysis.analysis_json?.vulnerabilities)) {
+      for (const level of levels) {
+        if (analysis.analysis_json.vulnerabilities.some((v: any) => (typeof v === 'string' ? v.toLowerCase().includes(level) : JSON.stringify(v).toLowerCase().includes(level)))) {
+          found = level;
+          break;
+        }
+      }
+    }
+    if (!found) return { label: 'None', color: 'bg-gray-400 text-white' };
+    return { label: found.charAt(0).toUpperCase() + found.slice(1), color: colors[found] };
+  }
+
   return (
     <div className="p-6">
+      {/* Debug panel for troubleshooting */}
+      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 text-xs text-yellow-800 rounded">
+        <div><b>Debug:</b> analyses={analyses.length}, filtered={filteredAnalyses.length}, loading={String(loading)}, error={String(error)}</div>
+      </div>
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs text-gray-400">
           {lastUpdated && <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>}
@@ -87,43 +143,67 @@ const AnalysisPage = () => {
       <h2 className="text-2xl font-bold mb-4">Analysis</h2>
       {loading && <p>Loading...</p>}
       {error && <p className="text-red-600">{error}</p>}
-      <table className="min-w-full bg-white rounded shadow mb-6">
-        <thead>
-          <tr className="text-left border-b">
-            <th className="py-2 px-4">ID</th>
-            <th className="py-2 px-4">File Name</th>
-            <th className="py-2 px-4">Date</th>
-            <th className="py-2 px-4">Status</th>
-            <th className="py-2 px-4">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredAnalyses.map((a: any) => (
-            <tr key={a.id} className={`border-b hover:bg-gray-50 transition ${highlightRow === a.id ? 'ring-2 ring-blue-200' : ''}`}>
-              <td className="py-2 px-4">{a.id}</td>
-              <td className="py-2 px-4">{a.fileName}</td>
-              <td className="py-2 px-4">{a.date}</td>
-              <td className="py-2 px-4">{a.status}</td>
-              <td className="py-2 px-4 flex gap-2">
-                <button
-                  className="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition"
-                  onClick={() => handleView(a.id)}
-                  aria-label={`View analysis ${a.id}`}
-                >
-                  View
-                </button>
-                <button
-                  className="px-3 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition"
-                  onClick={() => handleDelete(a.id)}
-                  aria-label={`Delete analysis ${a.id}`}
-                >
-                  Delete
-                </button>
-              </td>
+      {(!loading && filteredAnalyses.length === 0) && (
+        <div className="p-8 text-center text-gray-500 text-lg">No analyses found in the database.</div>
+      )}
+      {filteredAnalyses.length > 0 && (
+        <table className="min-w-full bg-white rounded shadow mb-6 text-sm">
+          <thead>
+            <tr className="text-left border-b">
+              <th className="py-2 px-3">ID</th>
+              <th className="py-2 px-3">File Name</th>
+              <th className="py-2 px-3">Type</th>
+              <th className="py-2 px-3">Date</th>
+              <th className="py-2 px-3">Severity</th>
+              <th className="py-2 px-3">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredAnalyses.map((a: any) => {
+              const isBaseline = a.status && typeof a.status === 'string' && a.status.toLowerCase().includes('baseline');
+              const severity = getHighestSeverity(a);
+              return (
+                <tr key={a.id} className={`border-b hover:bg-gray-50 transition ${highlightRow === a.id ? 'ring-2 ring-blue-200' : ''} ${details && details.id === a.id ? 'outline outline-2 outline-blue-400 z-10' : ''}`}>
+                  <td className="py-2 px-3">{a.id}</td>
+                  <td className="py-2 px-3">{a.fileName}</td>
+                  <td className="py-2 px-3">
+                    <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${isBaseline ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>{isBaseline ? 'Baseline' : 'Analysis'}</span>
+                  </td>
+                  <td className="py-2 px-3">{a.date}</td>
+                  <td className="py-2 px-3">
+                    <span
+                      key={severity.label + '-' + a.id}
+                      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 ${severity.color} severity-badge`}
+                      style={severity.label === 'High' ? { backgroundColor: '#facc15', color: '#000', borderColor: '#d1d5db' } : {}}
+                    >
+                      {severity.label}
+                    </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex gap-2 items-center">
+                      <button
+                        className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition"
+                        onClick={() => handleView(a.id)}
+                        aria-label={`View analysis ${a.id}`}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition"
+                        onClick={() => handleDelete(a.id)}
+                        aria-label={`Delete analysis ${a.id}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {/* Always show details panel if any analysis is selected */}
       {details && (
         <div className="bg-gray-100 p-4 rounded shadow">
           <h3 className="font-semibold mb-2">Analysis Details</h3>

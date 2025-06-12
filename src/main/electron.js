@@ -166,19 +166,23 @@ ipcMain.handle('get-baseline', async (_event, id) => {
 });
 
 // IPC: Save baseline
-ipcMain.handle('save-baseline', async (_event, fileName, originalName) => {
+ipcMain.handle('save-baseline', async (_event, fileName, originalName, filePath, analysis_json) => {
+    console.log('[DEBUG] save-baseline called:', { fileName, originalName, filePath, analysis_json });
     return new Promise((resolve, reject) => {
         const args = [
             path.join(__dirname, '../python/db.py'), '--save-baseline', fileName
         ];
         if (originalName) args.push(originalName);
+        if (filePath) args.push(filePath);
+        if (analysis_json) args.push(typeof analysis_json === 'object' ? JSON.stringify(analysis_json) : analysis_json);
+        console.log('[DEBUG] save-baseline args:', args);
         const py = spawn(path.join(__dirname, '../../venv/bin/python3'), args, {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
         });
         let data = '';
         py.stdout.on('data', chunk => data += chunk);
-        py.stderr.on('data', err => console.error(err.toString()));
+        py.stderr.on('data', err => console.error('[PYTHON STDERR]', err.toString()));
         py.on('close', () => {
             try {
                 resolve(JSON.parse(data));
@@ -425,4 +429,11 @@ ipcMain.handle('save-analysis', async (_event, fileName, status, analysis_json, 
             }
         });
     });
+});
+
+// IPC: Debug log hook (no-op to silence errors from renderer)
+ipcMain.handle('debug-log-hook', async (_event, data) => {
+  // Optionally log to console or file
+  // console.log('debug-log-hook:', data);
+  return { ok: true };
 });

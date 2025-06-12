@@ -3,6 +3,7 @@ import sqlite3
 import json
 from datetime import datetime
 import sys
+import hashlib
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '../../firstwatch.db')
 
@@ -19,18 +20,36 @@ def init_db():
                 date TEXT,
                 status TEXT,
                 analysis_json TEXT,
-                filePath TEXT
+                filePath TEXT,
+                analysis_hash TEXT
             )
         ''')
+        # Add analysis_json to baselines if not present
         c.execute('''
             CREATE TABLE IF NOT EXISTS baselines (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 fileName TEXT,
                 originalName TEXT,
                 date TEXT,
-                filePath TEXT
+                filePath TEXT,
+                analysis_json TEXT,
+                analysis_hash TEXT
             )
         ''')
+        # Migration: add analysis_json if missing
+        try:
+            c.execute('ALTER TABLE baselines ADD COLUMN analysis_json TEXT')
+        except Exception:
+            pass  # Already exists
+        # Migration: add analysis_hash if missing
+        try:
+            c.execute('ALTER TABLE analyses ADD COLUMN analysis_hash TEXT')
+        except Exception:
+            pass  # Already exists
+        try:
+            c.execute('ALTER TABLE baselines ADD COLUMN analysis_hash TEXT')
+        except Exception:
+            pass  # Already exists
         c.execute('''
             CREATE TABLE IF NOT EXISTS comparison_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,13 +64,22 @@ def init_db():
         ''')
         conn.commit()
 
+def get_analysis_hash(analysis_json):
+    # Use a stable hash of the analysis_json for uniqueness
+    return hashlib.sha256(json.dumps(analysis_json, sort_keys=True).encode('utf-8')).hexdigest() if analysis_json else None
+
 def save_analysis(file_name, status, analysis_json, file_path=None):
     with get_connection() as conn:
         c = conn.cursor()
+        analysis_hash = get_analysis_hash(analysis_json)
+        # Uniqueness check: do not insert if an analysis with the same fileName, filePath, and hash exists
+        c.execute('''SELECT id FROM analyses WHERE fileName = ? AND (filePath = ? OR (? IS NULL AND filePath IS NULL)) AND analysis_hash = ?''', (file_name, file_path, file_path, analysis_hash))
+        if c.fetchone():
+            return None  # Already exists, do not insert duplicate
         c.execute('''
-            INSERT INTO analyses (fileName, date, status, analysis_json, filePath)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (file_name, datetime.now().isoformat(), status, json.dumps(analysis_json), file_path))
+            INSERT INTO analyses (fileName, date, status, analysis_json, filePath, analysis_hash)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (file_name, datetime.now().isoformat(), status, json.dumps(analysis_json), file_path, analysis_hash))
         conn.commit()
         return c.lastrowid
 
@@ -77,19 +105,31 @@ def get_analysis(analysis_id):
 def list_analyses():
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, fileName, date, status, filePath FROM analyses ORDER BY date DESC')
+        c.execute('SELECT id, fileName, date, status, analysis_json, filePath FROM analyses ORDER BY date DESC')
         return [
-            {'id': row[0], 'fileName': row[1], 'date': row[2], 'status': row[3], 'filePath': row[4]}
+            {
+                'id': row[0],
+                'fileName': row[1],
+                'date': row[2],
+                'status': row[3],
+                'analysis_json': json.loads(row[4]) if row[4] else None,
+                'filePath': row[5]
+            }
             for row in c.fetchall()
         ]
 
-def save_baseline(file_name, original_name=None, file_path=None):
+def save_baseline(file_name, original_name=None, file_path=None, analysis_json=None):
     with get_connection() as conn:
         c = conn.cursor()
+        analysis_hash = get_analysis_hash(analysis_json)
+        # Uniqueness check: do not insert if a baseline with the same fileName, filePath, and hash exists
+        c.execute('''SELECT id FROM baselines WHERE fileName = ? AND (filePath = ? OR (? IS NULL AND filePath IS NULL)) AND analysis_hash = ?''', (file_name, file_path, file_path, analysis_hash))
+        if c.fetchone():
+            return None  # Already exists, do not insert duplicate
         c.execute('''
-            INSERT INTO baselines (fileName, originalName, date, filePath)
-            VALUES (?, ?, ?, ?)
-        ''', (file_name, original_name or file_name, datetime.now().isoformat(), file_path))
+            INSERT INTO baselines (fileName, originalName, date, filePath, analysis_json, analysis_hash)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (file_name, original_name or file_name, datetime.now().isoformat(), file_path, json.dumps(analysis_json) if analysis_json else None, analysis_hash))
         conn.commit()
         return c.lastrowid
 
@@ -99,21 +139,35 @@ def get_baseline(baseline_id):
         c.execute('SELECT * FROM baselines WHERE id = ?', (baseline_id,))
         row = c.fetchone()
         if row:
+            analysis_json = None
+            if len(row) > 5 and row[5]:
+                try:
+                    analysis_json = json.loads(row[5])
+                except Exception:
+                    analysis_json = None
             return {
                 'id': row[0],
                 'fileName': row[1],
                 'originalName': row[2],
                 'date': row[3],
-                'filePath': row[4] if len(row) > 4 else None
+                'filePath': row[4] if len(row) > 4 else None,
+                'analysis_json': analysis_json
             }
         return None
 
 def list_baselines():
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, fileName, originalName, date, filePath FROM baselines ORDER BY date DESC')
+        c.execute('SELECT id, fileName, originalName, date, filePath, analysis_json FROM baselines ORDER BY date DESC')
         return [
-            {'id': row[0], 'fileName': row[1], 'originalName': row[2], 'date': row[3], 'filePath': row[4]}
+            {
+                'id': row[0],
+                'fileName': row[1],
+                'originalName': row[2],
+                'date': row[3],
+                'filePath': row[4],
+                'analysis_json': json.loads(row[5]) if row[5] else None
+            }
             for row in c.fetchall()
         ]
 
@@ -186,7 +240,15 @@ def main():
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--save-baseline':
         from db import save_baseline
-        baseline_id = save_baseline(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
+        file_name = sys.argv[2]
+        original_name = sys.argv[3] if len(sys.argv) > 3 else None
+        file_path = sys.argv[4] if len(sys.argv) > 4 else None
+        try:
+            analysis_json = json.loads(sys.argv[5]) if len(sys.argv) > 5 else None
+        except Exception:
+            analysis_json = None
+        print('[DEBUG] --save-baseline args:', file_name, original_name, file_path, type(analysis_json), str(analysis_json)[:200], file=sys.stderr)
+        baseline_id = save_baseline(file_name, original_name, file_path, analysis_json)
         print(json.dumps({'ok': True, 'baseline_id': baseline_id}))
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--delete-baseline':
