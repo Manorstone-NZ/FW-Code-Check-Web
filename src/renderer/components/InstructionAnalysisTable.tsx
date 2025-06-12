@@ -17,7 +17,7 @@ const RiskBadge = ({ level }: { level: string }) => {
 };
 
 const InstructionAnalysisTable: FC<InstructionAnalysisTableProps> = ({ data }) => (
-  <div className="overflow-auto rounded-b-xl bg-white border-t border-gray-100 relative" style={{ maxHeight: '340px', minHeight: '120px', padding: '0 1.5rem 1.5rem 1.5rem', boxSizing: 'border-box' }}>
+  <div className="rounded-b-xl bg-white border-t border-gray-100 relative" style={{ maxHeight: '340px', minHeight: '120px', padding: '0 1.5rem 1.5rem 1.5rem', boxSizing: 'border-box', overflow: 'auto' }}>
     <table className="table-auto w-full bg-white text-sm border">
       <thead>
         <tr className="bg-gray-100">

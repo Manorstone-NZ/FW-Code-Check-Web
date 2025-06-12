@@ -21,10 +21,6 @@ def load_openai_key():
     except ImportError:
         pass
 
-# Only load the key when running as main or when explicitly called
-if __name__ == "__main__":
-    load_openai_key()
-
 try:
     import openai
 except ImportError:
@@ -59,14 +55,18 @@ def check_openai_api():
     load_openai_key()
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
+        print('DEBUG: No OPENAI_API_KEY found', file=sys.stderr)
         return {'ok': False, 'error': 'OPENAI_API_KEY not set in openai.key, .env, or environment.'}
     if not openai:
+        print('DEBUG: openai package not installed', file=sys.stderr)
         return {'ok': False, 'error': 'openai package not installed.'}
-    openai.api_key = api_key
     try:
-        models = openai.models.list()
+        client = openai.OpenAI(api_key=api_key)
+        models = client.models.list()
+        print(f'DEBUG: models fetched: {[m.id for m in models.data]}', file=sys.stderr)
         return {'ok': True, 'models': [m.id for m in models.data]}
     except Exception as e:
+        print(f'DEBUG: Exception in check_openai_api: {e}', file=sys.stderr)
         return {'ok': False, 'error': str(e)}
 
 def llm_analysis(prompt, model="gpt-4o"):
@@ -115,7 +115,11 @@ def ensure_analysis_fields(analysis):
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--check-openai':
-        print(json.dumps(check_openai_api()))
+        try:
+            result = check_openai_api()
+            print(json.dumps(result))
+        except Exception as e:
+            print(json.dumps({'ok': False, 'error': str(e)}))
         return
     if len(sys.argv) > 1 and sys.argv[1] == '--init-db':
         try:
@@ -159,7 +163,7 @@ def main():
             print(json.dumps({'error': f'Failed to read files: {str(e)}'}))
             return
         llm_prompt = f'''
-You are a senior control systems cybersecurity analyst. Compare the following two PLC code files in detail. Format your response as professional Markdown with clear section headers (##), bullet points, and bold/italic highlights for key risks and recommendations. Use tables if appropriate.
+You are a senior control systems cybersecurity analyst. Compare the following two PLC code files in detail. Format your response as professional Markdown with clear section headers (##), bullet points, and **italic** highlights for key risks and recommendations. Use tables if appropriate.
 
 ---
 ANALYSIS FILE:
@@ -172,6 +176,11 @@ BASELINE FILE:
 Provide a detailed, professional comparison. Highlight all differences in logic, structure, security, and potential risks. Clearly call out any new, missing, or modified instructions, logic bombs, or suspicious changes. Use clear section headers and bullet points. Conclude with a summary of key risks and recommendations.
 '''
         llm_result = llm_analysis(llm_prompt, model="gpt-4o")
+        # Log LLM interaction (comparison mode)
+        try:
+            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))
+        except Exception:
+            pass
         print(json.dumps({'llm_comparison': llm_result}))
         from db import save_comparison_history
         # Try to extract analysisId and baselineId from file names if possible
@@ -314,6 +323,11 @@ If a section has no relevant content, write "None".
 Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'''
         llm_prompt += file_content[:4000]
         llm_result = llm_analysis(llm_prompt, model="gpt-4o")
+        # Log LLM interaction (main analysis mode)
+        try:
+            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))
+        except Exception:
+            pass
         # Try to extract instruction_analysis JSON array if present in LLM result
         import re
         import ast
@@ -342,44 +356,25 @@ Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'
                             instruction_analysis = arr
                     except Exception:
                         pass
-        rule_based["llm_results"] = llm_result
-        rule_based["instruction_analysis"] = instruction_analysis
-        # Add new fields for frontend to display if not present
-        for k in ["cyber_security_key_findings", "general_file_structure_observations", "implications_and_recommendations", "next_steps"]:
-            if k not in rule_based:
-                rule_based[k] = ""
-        rule_based = ensure_analysis_fields(rule_based)
+        rule_based['llm_results'] = llm_result
+        rule_based['instruction_analysis'] = instruction_analysis
+        analysis_result = ensure_analysis_fields(rule_based)
+        result_obj = dict(analysis_result)
+        result_obj['ok'] = True
         try:
-            save_analysis(file_path, "complete", rule_based, file_path)
-            log_info(f'Analysis saved for {file_path}')
+            save_analysis(file_path, "complete", analysis_result, file_path)
+            log_info(f'Analysis saved (ID: {analysis_result.get("id")})')
+            result_obj['id'] = analysis_result.get('id')
         except Exception as e:
-            log_error(f'Failed to save analysis for {file_path}: {e}')
-        print(json.dumps(rule_based))
+            log_error(f'Failed to save analysis: {e}')
+            result_obj['ok'] = False
+            result_obj['error'] = f'Failed to save analysis: {str(e)}'
+        print(json.dumps(result_obj))
         return
-    # Placeholder: returns a static analysis result
-    result = {
-        "fileName": "example.l5x",
-        "report": {
-            "category": {
-                "description": "Sample description.",
-                "findings": ["No issues found."],
-                "potential_issues": [],
-                "example_malicious_change": None,
-                "vulnerabilities": []
-            }
-        },
-        "vulnerabilities": [],
-        "recommendations": ["Keep firmware updated."],
-        "llm_results": []
-    }
-    result = ensure_analysis_fields(result)
-    print(json.dumps(result))
+    print(json.dumps({'ok': False, 'error': 'No file specified for analysis.'}))
 
+# Only load the key when running as main or when explicitly called
 if __name__ == "__main__":
-    # Debug: log working directory and OPENAI_API_KEY
-    print(json.dumps({
-        "cwd": os.getcwd(),
-        "openai_key_present": bool(os.environ.get('OPENAI_API_KEY')),
-        "openai_key_start": os.environ.get('OPENAI_API_KEY', '')[:8]
-    }), file=sys.stderr)
+    load_openai_key()
+    print(json.dumps({"cwd": os.getcwd(), "openai_key_present": bool(os.environ.get('OPENAI_API_KEY')), "openai_key_start": os.environ.get('OPENAI_API_KEY', '')[:8]}), file=sys.stderr)
     main()

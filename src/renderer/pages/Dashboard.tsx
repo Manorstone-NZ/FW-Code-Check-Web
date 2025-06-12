@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { useAnalyses, useBaselines, deleteAnalysis } from '../utils/analysisApi';
-import AnalysisDetails from '../components/AnalysisDetails';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { analyses, loading: loadingAnalyses, error: errorAnalyses, refresh: refreshAnalyses } = useAnalyses();
   const { baselines, loading: loadingBaselines, error: errorBaselines, refresh: refreshBaselines } = useBaselines();
-  const [viewAnalysis, setViewAnalysis] = React.useState<any | null>(null);
   const [deletingId, setDeletingId] = React.useState<number | null>(null);
+  const navigate = useNavigate();
 
   // Compute metrics
   const totalAnalyses = analyses.length;
@@ -63,22 +63,46 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col gap-8 font-sans">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-8 flex flex-col items-center border border-gray-100">
-          <div className="text-4xl font-extrabold text-[#0275D8]">{loadingAnalyses ? '...' : totalAnalyses}</div>
-          <div className="text-gray-500 mt-2 text-base font-medium">Total Analyses</div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
+        {/* Total Analyses */}
+        <div
+          className="bg-blue-200 rounded-xl shadow-md p-4 flex flex-col items-center border border-blue-300 hover:shadow-lg cursor-pointer transition group min-h-[110px] min-w-[120px]"
+          style={{ maxWidth: 180 }}
+          onClick={() => navigate('/analysis')}
+          title="View all analyses"
+        >
+          <div className="text-3xl font-bold text-blue-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalAnalyses}</div>
+          <div className="text-blue-900 mt-1 text-base font-semibold uppercase tracking-wide">Total Analyses</div>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-8 flex flex-col items-center border border-gray-100">
-          <div className="text-4xl font-extrabold text-[#28A745]">{loadingBaselines ? '...' : totalBaselines}</div>
-          <div className="text-gray-500 mt-2 text-base font-medium">Baselines</div>
+        {/* Baselines */}
+        <div
+          className="bg-green-200 rounded-xl shadow-md p-4 flex flex-col items-center border border-green-300 hover:shadow-lg cursor-pointer transition group min-h-[110px] min-w-[120px]"
+          style={{ maxWidth: 180 }}
+          onClick={() => navigate('/baselines')}
+          title="View all baselines"
+        >
+          <div className="text-3xl font-bold text-green-800 mb-1 tracking-tight drop-shadow">{loadingBaselines ? '...' : totalBaselines}</div>
+          <div className="text-green-900 mt-1 text-base font-semibold uppercase tracking-wide">Baselines</div>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-8 flex flex-col items-center border border-gray-100">
-          <div className="text-4xl font-extrabold text-[#D9534F]">{loadingAnalyses ? '...' : totalVulnerabilities}</div>
-          <div className="text-gray-500 mt-2 text-base font-medium">Vulnerabilities</div>
+        {/* Vulnerabilities */}
+        <div
+          className="bg-red-200 rounded-xl shadow-md p-4 flex flex-col items-center border border-red-300 hover:shadow-lg cursor-pointer transition group min-h-[110px] min-w-[120px]"
+          style={{ maxWidth: 180 }}
+          onClick={() => navigate('/analysis?vuln=1')}
+          title="View all detected vulnerabilities"
+        >
+          <div className="text-3xl font-bold text-red-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalVulnerabilities}</div>
+          <div className="text-red-900 mt-1 text-base font-semibold uppercase tracking-wide">Vulnerabilities</div>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-8 flex flex-col items-center border border-gray-100">
-          <div className="text-4xl font-extrabold text-[#FFC107]">{loadingAnalyses ? '...' : totalAlarms}</div>
-          <div className="text-gray-500 mt-2 text-base font-medium">Alarms</div>
+        {/* Alarms */}
+        <div
+          className="bg-yellow-200 rounded-xl shadow-md p-4 flex flex-col items-center border border-yellow-300 hover:shadow-lg cursor-pointer transition group min-h-[110px] min-w-[120px]"
+          style={{ maxWidth: 180 }}
+          onClick={() => navigate('/analysis?alarms=1')}
+          title="View all detected alarms"
+        >
+          <div className="text-3xl font-bold text-yellow-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalAlarms}</div>
+          <div className="text-yellow-900 mt-1 text-base font-semibold uppercase tracking-wide">Alarms</div>
         </div>
       </div>
       <div className="bg-white rounded-xl shadow-md p-8 mt-4 border border-gray-100">
@@ -106,21 +130,11 @@ const Dashboard = () => {
                   <td className="py-2">{a.fileName || ''}</td>
                   <td className="py-2">{a.status || ''}</td>
                   <td className="py-2 font-bold" style={{ color: sev.color }}>{sev.label}</td>
-                  <td className="py-2 space-x-2">
+                  <td className="py-2">
                     <button
                       className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      onClick={() => setViewAnalysis(a)}
+                      onClick={() => navigate(`/analysis/${a.id}`)}
                     >View</button>
-                    <button
-                      className={`px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 ${deletingId === a.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      disabled={deletingId === a.id}
-                      onClick={async () => {
-                        setDeletingId(a.id);
-                        await deleteAnalysis(a.id);
-                        setDeletingId(null);
-                        refreshAnalyses();
-                      }}
-                    >{deletingId === a.id ? 'Deleting...' : 'Delete'}</button>
                   </td>
                 </tr>
               );
@@ -128,19 +142,6 @@ const Dashboard = () => {
           </tbody>
         </table>
       </div>
-      {/* Modal for analysis details */}
-      {viewAnalysis && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 relative">
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl font-bold"
-              onClick={() => setViewAnalysis(null)}
-              aria-label="Close"
-            >×</button>
-            <AnalysisDetails analysis={viewAnalysis} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

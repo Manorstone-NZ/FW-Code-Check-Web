@@ -309,10 +309,15 @@ ipcMain.handle('check-llm-status', async () => {
         py.stdout.on('data', chunk => data += chunk);
         py.stderr.on('data', err => console.error(err.toString()));
         py.on('close', () => {
+            // Defensive: if no data, always resolve with a default error object
+            if (!data || !data.trim()) {
+                resolve({ ok: false, error: 'No output from analyzer.py --check-openai' });
+                return;
+            }
             try {
                 resolve(JSON.parse(data));
             } catch (e) {
-                reject(e);
+                resolve({ ok: false, error: 'Invalid JSON from analyzer.py --check-openai', raw: data });
             }
         });
     });

@@ -86,8 +86,11 @@ function parseNewLLMSections(llmText: string) {
 }
 
 const SectionCard = ({ title, children, highlight, noPadding }: { title: string; children: React.ReactNode; highlight?: boolean; noPadding?: boolean }) => (
-  <div className={`bg-white rounded-xl shadow-md ${noPadding ? '' : 'p-6'} border ${highlight ? 'border-[#D9534F]' : 'border-gray-100'} mb-4`}>
-    <div className={`font-bold text-lg mb-2 ${highlight ? 'text-[#D9534F]' : 'text-[#232B3A]'}`}>{title}</div>
+  <div className={`bg-white rounded-xl shadow-md ${noPadding ? '' : 'p-6'} border ${highlight ? 'border-[#D9534F]' : 'border-gray-100'} mb-6`}> 
+    <div className={`font-bold text-xl mb-3 flex items-center gap-2 ${highlight ? 'text-[#D9534F]' : 'text-[#232B3A]'}`}> 
+      {/* Remove tick from title, only highlight color if needed */}
+      <span>{title}</span>
+    </div>
     <div className={`text-gray-700 whitespace-pre-line text-base ${noPadding ? 'p-0' : ''}`}>{children}</div>
   </div>
 );
@@ -136,7 +139,56 @@ function renderLabelValueList(content: string) {
 function renderNextSteps(content: string) {
   // Add a blank line before lines ending with ':' (section headers)
   const formatted = content.replace(/(^|\n)([^\n]+:)/g, '\n\n$2');
-  return <ReactMarkdown>{formatted}</ReactMarkdown>;
+  // Use a more professional checkmark icon (SVG)
+  return (
+    <ReactMarkdown
+      components={{
+        li: ({ children, ...props }) => (
+          <li className="mb-1 flex items-center">
+            <span className="inline-block mr-2 align-middle" style={{ width: 18, height: 18 }}>
+              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" width={18} height={18}>
+                <circle cx="10" cy="10" r="10" fill="#0275D8" />
+                <path d="M6 10.5L9 13.5L14 7.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span>{children}</span>
+          </li>
+        ),
+      }}
+    >
+      {formatted}
+    </ReactMarkdown>
+  );
+}
+
+// Helper: Render Implications and Recommendations as a table if markdown table is present
+function renderImplicationsTable(content: string) {
+  // Try to extract markdown table
+  const tableMatch = content.match(/\|\s*Risk\s*\|.*?\|([\s\S]+?)\n\s*\|/i);
+  if (!tableMatch) return null;
+  // Parse all table rows
+  const rows = content.split('\n').filter(l => l.trim().startsWith('|'));
+  if (rows.length < 3) return null; // header + separator + at least one row
+  const headers = rows[0].split('|').map(h => h.trim()).filter(Boolean);
+  const dataRows = rows.slice(2).map(row => row.split('|').map(cell => cell.trim()).filter(Boolean));
+  return (
+    <div className="overflow-x-auto">
+      <table className="table-auto w-full bg-white text-sm border rounded shadow">
+        <thead>
+          <tr className="bg-gray-100">
+            {headers.map((h, i) => <th key={i} className="p-3 text-left font-semibold">{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {dataRows.map((cells, i) => (
+            <tr key={i} className="border-b last:border-b-0">
+              {cells.map((cell, j) => <td key={j} className="p-3 align-top">{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 const getLLMStatus = (llm: any) => {
@@ -221,70 +273,74 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   // Robustly extract instruction_analysis from all possible sources
   const instructionAnalysis = extractInstructionAnalysis(analysis, typeof llm === 'string' ? llm : '');
 
+  // --- HIDE RAW INSTRUCTION-LEVEL ANALYSIS JSON BLOCKS IN LLM OUTPUT ---
+  // If llm_results contains a code block with INSTRUCTION-LEVEL ANALYSIS or a JSON array, remove it from the markdown rendering
+  let cleanedLlmSections = { ...llmSections };
+  if (cleanedLlmSections && typeof cleanedLlmSections === 'object') {
+    Object.keys(cleanedLlmSections).forEach((key) => {
+      if (key.toUpperCase().includes('INSTRUCTION-LEVEL ANALYSIS')) {
+        delete cleanedLlmSections[key];
+      } else if (typeof cleanedLlmSections[key] === 'string') {
+        // Remove any code block containing a JSON array
+        cleanedLlmSections[key] = cleanedLlmSections[key].replace(/```json[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n');
+      }
+    });
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
-      {/* DEBUG: Show instruction_analysis raw data */}
-      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-xs text-gray-700">
-        <strong>Debug: instruction_analysis</strong>
-        <pre className="whitespace-pre-wrap break-all mt-1">{JSON.stringify(instructionAnalysis, null, 2)}</pre>
-      </div>
       {/* Banner for critical/high vulnerabilities */}
       {(hasCritical || hasHigh) && (
-        <div className={`rounded-xl p-4 mb-6 flex items-center shadow border-2 ${hasCritical ? 'border-red-700 bg-red-50' : 'border-orange-500 bg-orange-50'}`}> 
-          <span className={`mr-3 text-2xl ${hasCritical ? 'text-red-700' : 'text-orange-500'}`}>⚠️</span>
-          <span className="font-bold text-lg text-[#232B3A]">
-            {hasCritical ? 'Critical vulnerabilities detected!' : 'High-risk vulnerabilities detected!'}
+        <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded text-sm text-red-800 font-semibold flex items-center gap-2">
+          <span className="text-2xl">⚠️</span>
+          <span>
+            {hasCritical ? 'Critical' : 'High'} vulnerabilities detected in this analysis. Review immediately.
           </span>
         </div>
       )}
-      <div className="mb-6">
-        <div className="text-2xl font-extrabold text-[#0275D8]">{fileName}</div>
-        <div className="text-gray-500 text-sm mt-1">Status: <span className="font-semibold text-[#28A745]">{status}</span> &nbsp; | &nbsp; Date: {date}</div>
+      {/* File/Status Header */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div>
+          <div className="text-lg font-bold text-[#232B3A]">{fileName}</div>
+          <div className="text-xs text-gray-500">{date} &middot; Status: <span className="font-semibold text-gray-700">{status}</span></div>
+        </div>
       </div>
       {/* Executive Summary */}
-      {execSummary && (
+      {cleanedLlmSections['EXECUTIVE SUMMARY'] && (
         <SectionCard title="Executive Summary">
-          <ReactMarkdown>{execSummary}</ReactMarkdown>
+          <ReactMarkdown>{cleanedLlmSections['EXECUTIVE SUMMARY']}</ReactMarkdown>
         </SectionCard>
       )}
       {/* Cyber Security Key Findings */}
-      {cyberFindings && (
+      {cleanedLlmSections['CYBER SECURITY KEY FINDINGS'] && (
         <SectionCard title="Cyber Security Key Findings" highlight>
-          <ReactMarkdown components={{li: ({...props}) => <li className="mb-2 flex items-start"><span className="text-red-600 mr-2 mt-1">&#9888;</span><span>{props.children}</span></li>}}>{cyberFindings}</ReactMarkdown>
+          {renderCyberFindings(cleanedLlmSections['CYBER SECURITY KEY FINDINGS'])}
         </SectionCard>
       )}
       {/* General Structure Observations */}
-      {structureObs && (
+      {cleanedLlmSections['GENERAL STRUCTURE OBSERVATIONS'] && (
         <SectionCard title="General Structure Observations">
-          <ReactMarkdown>{structureObs}</ReactMarkdown>
+          <ReactMarkdown>{cleanedLlmSections['GENERAL STRUCTURE OBSERVATIONS']}</ReactMarkdown>
         </SectionCard>
       )}
-      {/* Code Structure & Quality Review */}
-      {codeQuality && (
+      {/* Code Structure & Quality Review - always use SectionCard and match header style */}
+      {cleanedLlmSections['CODE STRUCTURE & QUALITY REVIEW'] && (
         <SectionCard title="Code Structure & Quality Review">
-          <ReactMarkdown>{codeQuality}</ReactMarkdown>
+          <ReactMarkdown>{cleanedLlmSections['CODE STRUCTURE & QUALITY REVIEW']}</ReactMarkdown>
         </SectionCard>
       )}
       {/* Implications and Recommendations as table if present */}
-      {implications && implications.includes('|') ? (
+      {cleanedLlmSections['IMPLICATIONS AND RECOMMENDATIONS'] && (
         <SectionCard title="Implications and Recommendations">
-          <div className="overflow-x-auto">
-            <ReactMarkdown components={{
-              table: ({...props}) => <table className="min-w-full text-sm border mt-2">{props.children}</table>,
-              th: ({...props}) => <th className="p-2 border bg-gray-100 font-bold">{props.children}</th>,
-              td: ({...props}) => <td className="p-2 border">{props.children}</td>,
-            }}>{implications}</ReactMarkdown>
-          </div>
-        </SectionCard>
-      ) : implications && (
-        <SectionCard title="Implications and Recommendations">
-          <ReactMarkdown>{implications}</ReactMarkdown>
+          {renderImplicationsTable(cleanedLlmSections['IMPLICATIONS AND RECOMMENDATIONS']) || (
+            <ReactMarkdown>{cleanedLlmSections['IMPLICATIONS AND RECOMMENDATIONS']}</ReactMarkdown>
+          )}
         </SectionCard>
       )}
-      {/* Next Steps as checklist */}
-      {nextSteps && (
+      {/* Next Steps */}
+      {cleanedLlmSections['NEXT STEPS'] && (
         <SectionCard title="Next Steps">
-          <ReactMarkdown components={{li: ({...props}) => <li className="mb-1 flex items-center"><span className="text-blue-500 mr-2">✔️</span><span>{props.children}</span></li>}}>{nextSteps}</ReactMarkdown>
+          <ReactMarkdown components={{li: ({...props}) => <li className="mb-1 flex items-center"><span className="text-blue-500 mr-2">✔️</span><span>{props.children}</span></li>}}>{cleanedLlmSections['NEXT STEPS']}</ReactMarkdown>
         </SectionCard>
       )}
       {/* Vulnerabilities (from report) */}
@@ -314,43 +370,61 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
       {/* Instruction-level Security Analysis (table) */}
       {Array.isArray(instructionAnalysis) && instructionAnalysis.length > 0 ? (
         <SectionCard title="Instruction-level Security Analysis">
-          <div className="overflow-x-auto overflow-y-auto w-full bg-white rounded-b-xl border-t border-gray-100" style={{maxHeight: '340px', minHeight: '120px', padding: '0 1.5rem 1.5rem 1.5rem', boxSizing: 'border-box'}}>
-            <table className="table-auto w-full text-sm border-separate border-spacing-0 shadow-sm">
-              <thead>
-                <tr className="bg-[#f3f6fa] text-[#232B3A]">
-                  <th className="p-4 text-left font-bold border-b border-gray-200">Instruction</th>
-                  <th className="p-4 text-left font-bold border-b border-gray-200">Insight</th>
-                  <th className="p-4 text-left font-bold border-b border-gray-200">Risk Level</th>
-                </tr>
-              </thead>
-              <tbody>
-                {instructionAnalysis.map((item: any, idx: number) => (
-                  <tr key={idx} className="even:bg-gray-50 hover:bg-blue-50 transition">
-                    <td className="p-4 font-mono text-xs text-gray-800 align-top max-w-xs break-all border-b border-gray-100">{item.instruction}</td>
-                    <td className="p-4 text-gray-900 align-top max-w-md break-words border-b border-gray-100">{item.insight}</td>
-                    <td className="p-4 font-semibold align-top border-b border-gray-100">
-                      <span className={
-                        item.risk_level && item.risk_level.toLowerCase() === 'critical' ? 'text-red-700 bg-red-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level && item.risk_level.toLowerCase() === 'high' ? 'text-orange-700 bg-orange-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level && item.risk_level.toLowerCase() === 'medium' ? 'text-yellow-800 bg-yellow-50 px-3 py-1 rounded-full font-bold' :
-                        item.risk_level && item.risk_level.toLowerCase() === 'low' ? 'text-green-700 bg-green-50 px-3 py-1 rounded-full font-bold' :
-                        'text-gray-800 px-3 py-1 rounded-full font-bold'
-                      }>{item.risk_level}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Only one scrollable container: let the table scroll, not the parent div */}
+          <InstructionAnalysisTable data={instructionAnalysis} />
         </SectionCard>
       ) : (
         <SectionCard title="Instruction-level Security Analysis">
           <div className="text-gray-500 italic">No instruction-level analysis available.</div>
         </SectionCard>
       )}
-      {/* If the LLM markdown contains a raw instruction-level analysis JSON block, show it as a collapsible panel for troubleshooting (optional, can be hidden by default) */}
     </div>
   );
 };
 
 export default AnalysisDetails;
+
+// Helper: Render Cyber Security Key Findings as a styled list
+function renderCyberFindings(content: string) {
+  // Parse markdown-style findings into cards
+  const findings = content.split(/\n(?=- \*\*Title\*\*:)/g).filter(f => f.trim().startsWith('- **Title**:'));
+  if (findings.length === 0) return <ReactMarkdown>{content}</ReactMarkdown>;
+  // Helper to extract risk level from finding text
+  function getRiskLevel(text: string) {
+    const match = text.match(/- \*\*Risk Level\*\*: *(\w+)/i);
+    return match ? match[1].toLowerCase() : '';
+  }
+  return (
+    <div className="grid gap-4">
+      {findings.map((finding, idx) => {
+        const riskLevel = getRiskLevel(finding);
+        const isCritical = riskLevel === 'critical';
+        const isHigh = riskLevel === 'high';
+        return (
+          <div key={idx} className="bg-[#fff6f6] border border-[#f5c6cb] rounded-lg p-4 shadow-sm flex gap-3 items-start">
+            {/* Only show warning icon for High or Critical */}
+            {(isCritical || isHigh) && (
+              <span className="inline-block mt-1 text-[#D9534F]">
+                <svg width="22" height="22" fill="none" viewBox="0 0 22 22"><circle cx="11" cy="11" r="11" fill="#D9534F"/><path d="M11 6v6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/><circle cx="11" cy="16" r="1.2" fill="#fff"/></svg>
+              </span>
+            )}
+            <div className="flex-1">
+              <ReactMarkdown
+                components={{
+                  li: ({ children, ...props }) => (
+                    <li className="mb-1 flex items-start">
+                      {/* Remove tick from info panel items */}
+                      <span className="inline-block mr-2 mt-1" />
+                      <span>{children}</span>
+                    </li>
+                  ),
+                  strong: ({ children }) => <span className="font-semibold text-[#D9534F]">{children}</span>,
+                }}
+              >{finding.trim()}</ReactMarkdown>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
