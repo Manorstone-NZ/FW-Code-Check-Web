@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useBaselines, getBaselineById, deleteBaseline } from '../utils/analysisApi';
+import AnalysisDetails from '../components/AnalysisDetails';
 
 const BaselinesPage = () => {
   const { baselines, loading, error, refresh } = useBaselines();
@@ -69,7 +70,8 @@ const BaselinesPage = () => {
       {details && (
         <div className="bg-gray-100 p-4 rounded shadow mt-4">
           <h3 className="font-semibold mb-2">Baseline Details</h3>
-          <pre className="text-sm overflow-x-auto">{JSON.stringify(details, null, 2)}</pre>
+          {/* Use the same detailed LLM result view as upload/analysis */}
+          <AnalysisDetails analysis={details} />
         </div>
       )}
     </div>
