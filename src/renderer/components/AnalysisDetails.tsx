@@ -149,7 +149,19 @@ const getLLMStatus = (llm: any) => {
 const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   if (!analysis) return null;
   const { fileName, status, date, analysis_json } = analysis;
-  const llm = analysis_json?.llm_results;
+
+  // Patch: If llm_results is empty, try to parse filePath as JSON and extract llm_results from there
+  let llm = analysis.analysis_json?.llm_results;
+  if ((!llm || llm === "") && typeof analysis.filePath === "string") {
+    try {
+      const parsed = JSON.parse(analysis.filePath);
+      if (parsed && typeof parsed.llm_results === "string" && parsed.llm_results.length > 0) {
+        llm = parsed.llm_results;
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
   const llmStatus = getLLMStatus(llm);
   const llmSections = parseNewLLMSections(typeof llm === 'string' ? llm : '');
   const llmSectionsRaw = parseLLMSectionsRaw(typeof llm === 'string' ? llm : '');
@@ -158,12 +170,98 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   const recommendations = analysis_json?.recommendations || [];
   const report = analysis_json?.report?.category || {};
 
+  // --- UI CLEANUP & PROFESSIONAL RENDERING ---
+  // Remove debug sections, focus on professional report layout
+  // Extract key LLM sections for prominent display
+  const execSummary = llmSections?.['EXECUTIVE SUMMARY'] || '';
+  const cyberFindings = llmSections?.['CYBER SECURITY KEY FINDINGS'] || '';
+  const structureObs = llmSections?.['GENERAL STRUCTURE OBSERVATIONS'] || '';
+  const codeQuality = llmSections?.['CODE STRUCTURE & QUALITY REVIEW'] || '';
+  const implications = llmSections?.['IMPLICATIONS AND RECOMMENDATIONS'] || '';
+  const nextSteps = llmSections?.['NEXT STEPS'] || '';
+
+  // Highlight if any critical/high vulnerabilities
+  const vulnList = Array.isArray(report.vulnerabilities) ? report.vulnerabilities : [];
+  const hasCritical = vulnList.some((v: any) => typeof v === 'string' ? v.toLowerCase().includes('critical') : JSON.stringify(v).toLowerCase().includes('critical'));
+  const hasHigh = vulnList.some((v: any) => typeof v === 'string' ? v.toLowerCase().includes('high') : JSON.stringify(v).toLowerCase().includes('high'));
+
   return (
     <div className="max-w-3xl mx-auto">
+      {/* DEBUG: Show instruction_analysis raw data */}
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-xs text-gray-700">
+        <strong>Debug: instruction_analysis</strong>
+        <pre className="whitespace-pre-wrap break-all mt-1">{JSON.stringify(analysis.analysis_json?.instruction_analysis, null, 2)}</pre>
+      </div>
+      {/* Banner for critical/high vulnerabilities */}
+      {(hasCritical || hasHigh) && (
+        <div className={`rounded-xl p-4 mb-6 flex items-center shadow border-2 ${hasCritical ? 'border-red-700 bg-red-50' : 'border-orange-500 bg-orange-50'}`}> 
+          <span className={`mr-3 text-2xl ${hasCritical ? 'text-red-700' : 'text-orange-500'}`}>⚠️</span>
+          <span className="font-bold text-lg text-[#232B3A]">
+            {hasCritical ? 'Critical vulnerabilities detected!' : 'High-risk vulnerabilities detected!'}
+          </span>
+        </div>
+      )}
       <div className="mb-6">
         <div className="text-2xl font-extrabold text-[#0275D8]">{fileName}</div>
         <div className="text-gray-500 text-sm mt-1">Status: <span className="font-semibold text-[#28A745]">{status}</span> &nbsp; | &nbsp; Date: {date}</div>
       </div>
+      {/* Executive Summary */}
+      {execSummary && (
+        <SectionCard title="Executive Summary">
+          <ReactMarkdown>{execSummary}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* Cyber Security Key Findings */}
+      {cyberFindings && (
+        <SectionCard title="Cyber Security Key Findings" highlight>
+          <ReactMarkdown components={{li: ({...props}) => <li className="mb-2 flex items-start"><span className="text-red-600 mr-2 mt-1">&#9888;</span><span>{props.children}</span></li>}}>{cyberFindings}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* General Structure Observations */}
+      {structureObs && (
+        <SectionCard title="General Structure Observations">
+          <ReactMarkdown>{structureObs}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* Code Structure & Quality Review */}
+      {codeQuality && (
+        <SectionCard title="Code Structure & Quality Review">
+          <ReactMarkdown>{codeQuality}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* Implications and Recommendations as table if present */}
+      {implications && implications.includes('|') ? (
+        <SectionCard title="Implications and Recommendations">
+          <div className="overflow-x-auto">
+            <ReactMarkdown components={{
+              table: ({...props}) => <table className="min-w-full text-sm border mt-2">{props.children}</table>,
+              th: ({...props}) => <th className="p-2 border bg-gray-100 font-bold">{props.children}</th>,
+              td: ({...props}) => <td className="p-2 border">{props.children}</td>,
+            }}>{implications}</ReactMarkdown>
+          </div>
+        </SectionCard>
+      ) : implications && (
+        <SectionCard title="Implications and Recommendations">
+          <ReactMarkdown>{implications}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* Next Steps as checklist */}
+      {nextSteps && (
+        <SectionCard title="Next Steps">
+          <ReactMarkdown components={{li: ({...props}) => <li className="mb-1 flex items-center"><span className="text-blue-500 mr-2">✔️</span><span>{props.children}</span></li>}}>{nextSteps}</ReactMarkdown>
+        </SectionCard>
+      )}
+      {/* Vulnerabilities (from report) */}
+      {vulnList.length > 0 && (
+        <SectionCard title="Detected Vulnerabilities" highlight>
+          <ul className="list-disc ml-6 text-[#D9534F]">
+            {vulnList.map((v: any, i: number) => (
+              <li key={i} className="mb-1 flex items-start"><span className="text-red-600 mr-2 mt-1">&#9888;</span><span>{typeof v === 'string' ? v : JSON.stringify(v)}</span></li>
+            ))}
+          </ul>
+        </SectionCard>
+      )}
+      {/* Potential Issues */}
       {report.potential_issues && report.potential_issues.length > 0 && (
         <SectionCard title="Potential Issues">
           <ul className="list-disc ml-6">
@@ -171,69 +269,13 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
           </ul>
         </SectionCard>
       )}
+      {/* Example Malicious Change */}
       {report.example_malicious_change && (
         <SectionCard title="Example Malicious Change">
           <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto">{report.example_malicious_change}</pre>
         </SectionCard>
       )}
-      {report.vulnerabilities && report.vulnerabilities.length > 0 && (
-        <SectionCard title="Rule-based Vulnerabilities" highlight>
-          <ul className="list-disc ml-6 text-[#D9534F]">
-            {report.vulnerabilities.map((v: string, i: number) => <li key={i}>{v}</li>)}
-          </ul>
-        </SectionCard>
-      )}
-      {/* LLM Communication Status */}
-      <SectionCard title="LLM Communication Status">
-        <div className={llmStatus.ok ? "text-green-700 font-semibold" : "text-red-700 font-semibold"}>{llmStatus.status}</div>
-        {llmStatus.error && <div className="text-red-600 text-sm mt-1">Error: {llmStatus.error}</div>}
-      </SectionCard>
-      {/* New LLM Structured Sections */}
-      {llmSections && (
-        <>
-          {Object.entries(llmSections).map(([section, content]) => (
-            <SectionCard
-              key={section}
-              title={section.replace(/_/g, ' ').replace(/\b([a-z])/g, c => c.toUpperCase())}
-              highlight={section.toUpperCase().includes('CYBER SECURITY') || section.toUpperCase().includes('FINDINGS')}
-            >
-              {typeof content === 'string' && content.includes('| Risk | Description | Recommendation |') ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm border mt-2">
-                    <tbody>
-                      {content
-                        .split(/\n/)
-                        .filter((row) => row.trim().startsWith('|'))
-                        .map((row, idx) => (
-                          <tr key={idx}>
-                            {row.split('|').slice(1, -1).map((cell, i) => (
-                              <td key={i} className="p-2 border">{cell.trim()}</td>
-                            ))}
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : renderLabelValueList(typeof content === 'string' ? content : '') ? (
-                renderLabelValueList(typeof content === 'string' ? content : '')
-              ) : section.toUpperCase().includes('NEXT STEPS') ? (
-                renderNextSteps(typeof content === 'string' ? content : '')
-              ) : (
-                <ReactMarkdown
-                  components={{
-                    strong: ({node, ...props}) => <strong className="font-semibold text-gray-800" {...props} />,
-                    em: ({node, ...props}) => <em className="italic text-gray-600" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc ml-6 my-2" {...props} />,
-                    li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                    code: ({node, ...props}) => <code className="bg-gray-100 px-1 rounded text-xs" {...props} />,
-                  }}
-                >{typeof content === 'string' ? content : String(content)}</ReactMarkdown>
-              )}
-            </SectionCard>
-          ))}
-        </>
-      )}
-      {/* INSTRUCTION-LEVEL ANALYSIS (table or LLM section, never both) */}
+      {/* Instruction-level Security Analysis (table) */}
       {Array.isArray(analysis.analysis_json?.instruction_analysis) && analysis.analysis_json.instruction_analysis.length > 0 ? (
         <SectionCard title="Instruction-level Security Analysis">
           <div className="overflow-x-auto overflow-y-auto w-full bg-white rounded-b-xl border-t border-gray-100" style={{maxHeight: '340px', minHeight: '120px', padding: '0 1.5rem 1.5rem 1.5rem', boxSizing: 'border-box'}}>
@@ -265,7 +307,12 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
             </table>
           </div>
         </SectionCard>
-      ) : null}
+      ) : (
+        <SectionCard title="Instruction-level Security Analysis">
+          <div className="text-gray-500 italic">No instruction-level analysis available.</div>
+        </SectionCard>
+      )}
+      {/* If the LLM markdown contains a raw instruction-level analysis JSON block, show it as a collapsible panel for troubleshooting (optional, can be hidden by default) */}
     </div>
   );
 };
