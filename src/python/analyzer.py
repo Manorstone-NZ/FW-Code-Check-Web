@@ -163,7 +163,9 @@ def main():
             print(json.dumps({'error': f'Failed to read files: {str(e)}'}))
             return
         llm_prompt = f'''
-You are a senior control systems cybersecurity analyst. Compare the following two PLC code files in detail. Format your response as professional Markdown with clear section headers (##), bullet points, and **italic** highlights for key risks and recommendations. Use tables if appropriate.
+You are a senior control systems cybersecurity analyst. Compare the following two PLC code files in detail.
+
+Respond ONLY in the following structured markdown format, using the exact section headers below, in this order. Each section must start with either '## Header' or '**Header**' (both are accepted). If a section has no relevant content, write "None" under the header. Use bullet points, subheaders, code blocks, and tables as appropriate for clarity and professional presentation.
 
 ---
 ANALYSIS FILE:
@@ -173,7 +175,27 @@ BASELINE FILE:
 {baseline_content[:4000]}
 ---
 
-Provide a detailed, professional comparison. Highlight all differences in logic, structure, security, and potential risks. Clearly call out any new, missing, or modified instructions, logic bombs, or suspicious changes. Use clear section headers and bullet points. Conclude with a summary of key risks and recommendations.
+Return your response in this canonical markdown structure:
+
+## Overview
+- Briefly summarize the main purpose and function of each file, and the context of the comparison.
+
+## Structural Differences
+- List and explain all differences in structure, organization, or layout between the two files (e.g., blocks, networks, routines, organization, naming, modularity).
+
+## Logic Differences
+- Detail all differences in logic, control flow, or instruction usage. Highlight any new, missing, or modified instructions, logic bombs, suspicious changes, or functional changes.
+
+## Security and Risk Analysis
+- Analyze all security-relevant differences, including potential vulnerabilities, unsafe logic, sabotage, or covert threats. Use bullet points and subheaders for each key finding.
+
+## Key Risks and Recommendations
+- Summarize the most important risks and provide actionable recommendations. Use a table if appropriate. List each risk and its recommended mitigation.
+
+## Conclusion
+- Provide a concise summary of the overall comparison, including any critical findings or next steps.
+
+If a section has no content, write "None" under the header. Use markdown formatting throughout, and ensure all sections are present and clearly labeled.
 '''
         llm_result = llm_analysis(llm_prompt, model="gpt-4o")
         # Log LLM interaction (comparison mode)

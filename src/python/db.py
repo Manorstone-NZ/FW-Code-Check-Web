@@ -184,20 +184,20 @@ def delete_analysis(analysis_id):
         conn.commit()
         return {'ok': True, 'deleted_id': analysis_id}
 
-def save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result):
+def save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name=None, baseline_file_name=None):
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO comparison_history (analysisId, baselineId, timestamp, llm_prompt, llm_result)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (analysis_id, baseline_id, datetime.now().isoformat(), llm_prompt, llm_result))
+            INSERT INTO comparison_history (analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (analysis_id, baseline_id, datetime.now().isoformat(), llm_prompt, llm_result, analysis_file_name, baseline_file_name))
         conn.commit()
         return c.lastrowid
 
 def list_comparison_history(analysis_id=None, baseline_id=None):
     with get_connection() as conn:
         c = conn.cursor()
-        query = 'SELECT id, analysisId, baselineId, timestamp, llm_prompt, llm_result FROM comparison_history'
+        query = 'SELECT id, analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName FROM comparison_history'
         params = []
         if analysis_id and baseline_id:
             query += ' WHERE analysisId = ? AND baselineId = ?'
@@ -216,10 +216,19 @@ def list_comparison_history(analysis_id=None, baseline_id=None):
                 'baselineId': row[2],
                 'timestamp': row[3],
                 'llm_prompt': row[4],
-                'llm_result': row[5]
+                'llm_result': row[5],
+                'analysisFileName': row[6],
+                'baselineFileName': row[7]
             }
             for row in c.execute(query, params)
         ]
+
+def delete_comparison_history(comparison_id):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('DELETE FROM comparison_history WHERE id = ?', (comparison_id,))
+        conn.commit()
+        return {'ok': True, 'deleted_id': comparison_id}
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--list-analyses':
@@ -278,6 +287,23 @@ def main():
         file_path = sys.argv[5] if len(sys.argv) > 5 else None
         analysis_id = save_analysis(file_name, status, analysis_json, file_path)
         print(json.dumps({'ok': True, 'analysis_id': analysis_id}))
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == '--delete-comparison-history':
+        from db import delete_comparison_history
+        result = delete_comparison_history(int(sys.argv[2]))
+        print(json.dumps(result))
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == '--save-comparison-history':
+        from db import save_comparison_history
+        # Accepts: analysis_id, baseline_id, llm_prompt, llm_result, analysisFileName, baselineFileName
+        analysis_id = int(sys.argv[2]) if sys.argv[2] != 'null' else None
+        baseline_id = int(sys.argv[3]) if sys.argv[3] != 'null' else None
+        llm_prompt = sys.argv[4]
+        llm_result = sys.argv[5]
+        analysis_file_name = sys.argv[6] if len(sys.argv) > 6 else None
+        baseline_file_name = sys.argv[7] if len(sys.argv) > 7 else None
+        result = save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name, baseline_file_name)
+        print(json.dumps({'ok': True, 'id': result}))
         return
     init_db()
     print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_PATH}'}))

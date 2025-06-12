@@ -437,3 +437,70 @@ ipcMain.handle('debug-log-hook', async (_event, data) => {
   // console.log('debug-log-hook:', data);
   return { ok: true };
 });
+
+// IPC: Get all saved LLM comparison results (from comparison_history, all entries)
+ipcMain.handle('get-saved-comparisons', async () => {
+    return new Promise((resolve, reject) => {
+        const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
+            path.join(__dirname, '../python/db.py'), '--list-comparison-history'
+        ], {
+            cwd: path.resolve(__dirname, '../..'),
+            env: process.env
+        });
+        let data = '';
+        py.stdout.on('data', chunk => data += chunk);
+        py.stderr.on('data', err => console.error(err.toString()));
+        py.on('close', () => {
+            try {
+                resolve(JSON.parse(data));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+});
+
+// IPC: Save a new LLM comparison result (no analysisId/baselineId, just timestamp/result)
+ipcMain.handle('save-comparison-result', async (_event, { timestamp, result, analysisFileName, baselineFileName }) => {
+    return new Promise((resolve, reject) => {
+        // Save with null analysisId/baselineId, empty prompt, and file names
+        const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
+            path.join(__dirname, '../python/db.py'), '--save-comparison-history', 'null', 'null', '', result, analysisFileName || '', baselineFileName || ''
+        ], {
+            cwd: path.resolve(__dirname, '../..'),
+            env: process.env
+        });
+        let data = '';
+        py.stdout.on('data', chunk => data += chunk);
+        py.stderr.on('data', err => console.error(err.toString()));
+        py.on('close', () => {
+            try {
+                resolve(JSON.parse(data));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+});
+
+// IPC: Delete a saved comparison result by id
+ipcMain.handle('delete-comparison-result', async (_event, id) => {
+    return new Promise((resolve, reject) => {
+        const py = spawn(path.join(__dirname, '../../venv/bin/python3'), [
+            path.join(__dirname, '../python/db.py'), '--delete-comparison-history', String(id)
+        ], {
+            cwd: path.resolve(__dirname, '../..'),
+            env: process.env
+        });
+        let data = '';
+        py.stdout.on('data', chunk => data += chunk);
+        py.stderr.on('data', err => console.error(err.toString()));
+        py.on('close', () => {
+            try {
+                resolve(JSON.parse(data));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+});
