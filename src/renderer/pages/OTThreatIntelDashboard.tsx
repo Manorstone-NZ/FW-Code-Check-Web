@@ -3,6 +3,8 @@ import { OTThreatIntel } from '../../types/otThreatIntel';
 import OTThreatIntelTable from '../components/OTThreatIntelTable';
 import OTThreatIntelFilterPanel from '../components/OTThreatIntelFilterPanel';
 import OTThreatIntelDetailsPanel from '../components/OTThreatIntelDetailsPanel';
+import { syncOTThreatIntel } from '../utils/analysisApi';
+import { LLMProviderContext } from '../App';
 
 const OTThreatIntelDashboard: React.FC = () => {
   const [entries, setEntries] = React.useState<OTThreatIntel[]>([]);
@@ -10,6 +12,7 @@ const OTThreatIntelDashboard: React.FC = () => {
   const [lastSync, setLastSync] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<OTThreatIntel | null>(null);
   const [filters, setFilters] = React.useState<any>({});
+  const { provider: llmProvider } = React.useContext(LLMProviderContext);
 
   // Fetch entries from DB on mount
   React.useEffect(() => {
@@ -29,8 +32,7 @@ const OTThreatIntelDashboard: React.FC = () => {
 
   const handleRefresh = async () => {
     setLoading(true);
-    // @ts-ignore
-    await window.electron.invoke('sync-ot-threat-intel');
+    await syncOTThreatIntel(llmProvider);
     await fetchEntries();
   };
 

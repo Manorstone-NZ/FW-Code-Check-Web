@@ -30,6 +30,7 @@ except ImportError:
 from db import init_db, save_analysis
 from logger import log_info, log_error
 import datetime
+import requests
 
 LLM_LOG_PATH = os.path.join(os.path.dirname(__file__), '../../llm-interactions.log.json')
 
@@ -70,8 +71,24 @@ def check_openai_api():
         print(f'DEBUG: Exception in check_openai_api: {e}', file=sys.stderr)
         return {'ok': False, 'error': str(e)}
 
-def llm_analysis(prompt, model="gpt-4o"):
-    # Only load key if not already present
+def ollama_llm_query(prompt, model='llama3'):
+    response = requests.post(
+        'http://localhost:11434/api/generate',
+        json={'model': model, 'prompt': prompt, 'stream': False}
+    )
+    return response.json()['response']
+
+def llm_analysis(prompt, model="gpt-4o", provider=None):
+    """
+    provider: 'openai' (default), 'ollama', or None (uses env LLM_PROVIDER or defaults to openai)
+    """
+    provider = provider or os.environ.get('LLM_PROVIDER', 'openai').lower()
+    if provider == 'ollama':
+        try:
+            return ollama_llm_query(prompt, model='llama3')
+        except Exception as e:
+            return {'error': f'Ollama error: {e}'}
+    # Default: OpenAI
     if not os.environ.get('OPENAI_API_KEY'):
         load_openai_key()
     api_key = os.environ.get('OPENAI_API_KEY')
@@ -155,6 +172,9 @@ def main():
     if len(sys.argv) > 3 and sys.argv[1] == '--compare':
         analysis_path = sys.argv[2]
         baseline_path = sys.argv[3]
+        provider = None
+        if len(sys.argv) > 5 and sys.argv[4] == '--provider':
+            provider = sys.argv[5]
         try:
             with open(analysis_path, 'r', encoding='utf-8') as f:
                 analysis_content = f.read()
@@ -198,7 +218,7 @@ Return your response in this canonical markdown structure:
 
 If a section has no content, write "None" under the header. Use markdown formatting throughout, and ensure all sections are present and clearly labeled.
 '''
-        llm_result = llm_analysis(llm_prompt, model="gpt-4o")
+        llm_result = llm_analysis(llm_prompt, model="gpt-4o", provider=provider)
         # Log LLM interaction (comparison mode)
         try:
             log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))
@@ -225,6 +245,10 @@ If a section has no content, write "None" under the header. Use markdown formatt
     # If a file path is provided, read and analyze it
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
+        provider = None
+        # Check for --provider argument
+        if len(sys.argv) > 3 and sys.argv[2] == '--provider':
+            provider = sys.argv[3]
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 file_content = f.read()
@@ -345,7 +369,7 @@ If a section has no relevant content, write "None".
 
 Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'''
         llm_prompt += file_content[:4000]
-        llm_result = llm_analysis(llm_prompt, model="gpt-4o")
+        llm_result = llm_analysis(llm_prompt, model="gpt-4o", provider=provider)
         # Log LLM interaction (main analysis mode)
         try:
             log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useLLMStatus } from '../utils/analysisApi';
+import { LLMProviderContext } from '../App';
 
 const navItems = [
   { label: 'Dashboard', path: '/' },
@@ -15,6 +16,7 @@ const navItems = [
 const Sidebar = () => {
   const location = useLocation();
   const { status: llmStatus, error: llmError } = useLLMStatus(60000); // 60s poll
+  const { provider: llmProvider } = React.useContext(LLMProviderContext);
   const [clearingDb, setClearingDb] = React.useState(false);
 
   async function handleClearDb() {
@@ -50,7 +52,7 @@ const Sidebar = () => {
       <div className="mt-2 flex flex-col items-center">
         <span className={`text-xs font-semibold px-2 py-1 rounded ${llmStatus === 'online' ? 'bg-green-600 text-white' : llmStatus === 'offline' ? 'bg-red-600 text-white' : 'bg-gray-500 text-white'}`}
           title={llmError ? `LLM error: ${llmError}` : llmStatus === 'online' ? 'LLM is online' : 'LLM status unknown'}>
-          LLM: {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'}
+          LLM: {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'} ({llmProvider === 'openai' ? 'OpenAI' : llmProvider === 'ollama' ? 'Ollama' : llmProvider})
         </span>
         {llmError && <span className="text-xs text-red-300 mt-1">{llmError}</span>}
       </div>

@@ -85,6 +85,64 @@ function parseNewLLMSections(llmText: string) {
   return result;
 }
 
+// Helper: Parse Ollama-style sections (robust, flexible, all markdown headers and bolded headers)
+function parseOllamaSections(llmText: string) {
+  if (typeof llmText !== 'string' || !llmText.trim()) return null;
+  // Match all markdown headers (##, ###, etc.) and bolded headers (with or without numbers/periods)
+  // e.g., **1. EXECUTIVE SUMMARY**, **EXECUTIVE SUMMARY**, **INSTRUCTION-LEVEL ANALYSIS (REQUIRED)**
+  const sectionRegex = /^(#{2,6})[ \t]*([^\n#]+)[ \t]*$|^\*\*\s*(\d+\.?\s*)?([A-Z0-9 \-()]+)\*\*/gim;
+  const codeBlockRegex = /```([\w]*)\n([\s\S]*?)```/g;
+  const result: { title: string; content: string }[] = [];
+  let match;
+  let lastIndex = 0;
+  let lastTitle = null;
+  let lastHeaderMatch = null;
+  let headerMatches: { index: number; title: string }[] = [];
+
+  // Find all section headers (markdown or bolded)
+  while ((match = sectionRegex.exec(llmText)) !== null) {
+    let title = null;
+    if (match[1]) {
+      // Markdown header
+      title = match[2].trim();
+    } else if (match[4]) {
+      // Bolded header, with or without number/period
+      title = match[4].trim();
+    }
+    if (title) {
+      headerMatches.push({ index: match.index, title });
+    }
+  }
+  // Add a virtual header at the end to capture the last section
+  headerMatches.push({ index: llmText.length, title: '' });
+
+  // Extract sections between headers
+  for (let i = 0; i < headerMatches.length - 1; i++) {
+    const { index, title } = headerMatches[i];
+    const nextIndex = headerMatches[i + 1].index;
+    const content = llmText.slice(index, nextIndex).replace(sectionRegex, '').trim();
+    if (title && content) {
+      result.push({ title, content });
+    }
+  }
+
+  // Find code blocks not already included in a section
+  let codeMatch;
+  while ((codeMatch = codeBlockRegex.exec(llmText)) !== null) {
+    const codeBlock = codeMatch[0];
+    const codeIndex = codeMatch.index;
+    const alreadyIncluded = result.some(
+      s => codeIndex >= llmText.indexOf(s.content) && codeIndex < llmText.indexOf(s.content) + s.content.length
+    );
+    if (!alreadyIncluded) {
+      result.push({ title: 'Code Block', content: codeBlock });
+    }
+  }
+  // Sort sections by their order in the text
+  result.sort((a, b) => llmText.indexOf(a.content) - llmText.indexOf(b.content));
+  return result;
+}
+
 const SectionCard = ({ title, children, highlight, noPadding }: { title: string; children: React.ReactNode; highlight?: boolean; noPadding?: boolean }) => (
   <div className={`bg-white rounded-xl shadow-md ${noPadding ? '' : 'p-6'} border ${highlight ? 'border-[#D9534F]' : 'border-gray-100'} mb-6`}> 
     <div className={`font-bold text-xl mb-3 flex items-center gap-2 ${highlight ? 'text-[#D9534F]' : 'text-[#232B3A]'}`}> 
@@ -278,7 +336,7 @@ const extractLLMResult = (analysis: any): string | null => {
 
 const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   if (!analysis) return null;
-  const { fileName, status, date, analysis_json } = analysis;
+  const { fileName, status, date, analysis_json, provider } = analysis;
 
   // Add badge for Analysis or Baseline
   let typeLabel = 'Analysis';
@@ -291,7 +349,15 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   // Use robust LLM extraction
   const llm = extractLLMResult(analysis);
   const llmStatus = getLLMStatus(llm);
-  const llmSections = parseNewLLMSections(typeof llm === 'string' ? llm : '');
+  // Detect provider (from analysis or context)
+  const detectedProvider = provider || analysis.llm_provider || analysis_json?.provider || 'openai';
+  // Try all parsing strategies
+  const llmSectionsOpenAI = parseNewLLMSections(typeof llm === 'string' ? llm : '');
+  const llmSectionsOllama = parseOllamaSections(typeof llm === 'string' ? llm : '');
+  // Prefer OpenAI if it matches, else Ollama, else fallback
+  const hasOpenAISections = llmSectionsOpenAI && Object.keys(llmSectionsOpenAI).length > 0 && llmSectionsOpenAI['EXECUTIVE SUMMARY'];
+  const hasOllamaSections = Array.isArray(llmSectionsOllama) && llmSectionsOllama.length > 0;
+  const llmSections = hasOpenAISections ? llmSectionsOpenAI : hasOllamaSections ? llmSectionsOllama : null;
   const llmSectionsRaw = parseLLMSectionsRaw(typeof llm === 'string' ? llm : '');
   const llmStructured = parseLLMStructured(typeof llm === 'string' ? llm : '');
   const vulnerabilities = analysis_json?.vulnerabilities || [];
@@ -328,6 +394,30 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
         cleanedLlmSections[key] = cleanedLlmSections[key].replace(/```json[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n');
       }
     });
+  }
+
+  // Render Ollama sections if detected
+  if (hasOllamaSections) {
+    // Display all sections in order, with original titles
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="flex items-center mb-4">
+          <span className={`inline-block px-3 py-1 text-xs font-semibold text-white rounded-full mr-3 ${typeColor}`}>{typeLabel}</span>
+          <span className="text-gray-700 font-bold text-lg truncate">{fileName}</span>
+          {date && <span className="ml-4 text-xs text-gray-400">{date}</span>}
+          <span className="ml-4 text-xs text-blue-500">Provider: {detectedProvider}</span>
+        </div>
+        {Array.isArray(llmSections)
+          ? llmSections.map(({ title, content }, i) =>
+              content ? (
+                <SectionCard key={i} title={title}>
+                  <ReactMarkdown>{content}</ReactMarkdown>
+                </SectionCard>
+              ) : null
+            )
+          : null}
+      </div>
+    );
   }
 
   return (

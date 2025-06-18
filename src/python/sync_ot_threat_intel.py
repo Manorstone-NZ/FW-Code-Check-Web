@@ -3,30 +3,45 @@ import json
 import uuid
 from datetime import datetime
 from db import save_ot_threat_intel, log_audit
+import requests
+
+def ollama_llm_query(prompt, model='llama3'):
+    response = requests.post(
+        'http://localhost:11434/api/generate',
+        json={'model': model, 'prompt': prompt, 'stream': False}
+    )
+    return response.json()['response']
 
 # --- OpenAI integration ---
-def fetch_openai_ot_threat_intel():
+def fetch_openai_ot_threat_intel(provider=None):
+    """
+    provider: 'openai' (default), 'ollama', or None (uses env LLM_PROVIDER or defaults to openai)
+    """
+    provider = provider or os.environ.get('LLM_PROVIDER', 'openai').lower()
     try:
-        import openai
-        import os
-        api_key = os.environ.get('OPENAI_API_KEY')
-        if not api_key:
-            with open(os.path.join(os.path.dirname(__file__), '../../openai.key')) as f:
-                api_key = f.read().strip()
-        openai.api_key = api_key
         prompt = (
             "Provide the latest 3-5 real-world OT/ICS threat intelligence headlines with details, "
             "including: title, summary, source, affected vendors, threat type, severity, protocols, system targets, tags. "
             "Format as a JSON array of objects with these fields. Focus on PLC malware, protocol vulns, ICS APTs, etc. "
             "Summaries should be concise and OT-relevant."
         )
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1200,
-            temperature=0.2
-        )
-        content = response['choices'][0]['message']['content']
+        if provider == 'ollama':
+            content = ollama_llm_query(prompt, model='llama3')
+        else:
+            import openai
+            import os
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                with open(os.path.join(os.path.dirname(__file__), '../../openai.key')) as f:
+                    api_key = f.read().strip()
+            openai.api_key = api_key
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1200,
+                temperature=0.2
+            )
+            content = response['choices'][0]['message']['content']
         # Try to parse JSON from LLM response
         try:
             entries = json.loads(content)
@@ -45,10 +60,10 @@ def fetch_openai_ot_threat_intel():
             e['created_at'] = now
             e['updated_at'] = now
             e['llm_response'] = content
-        log_audit('sync_ot_threat_intel', 'system', {'source': 'openai', 'prompt': prompt})
+        log_audit('sync_ot_threat_intel', 'system', {'source': provider, 'prompt': prompt})
         return entries
     except Exception as ex:
-        # Fallback to mock if OpenAI fails
+        # Fallback to mock if LLM fails
         now = datetime.now().isoformat()
         log_audit('sync_ot_threat_intel', 'system', {'source': 'mock', 'error': str(ex)})
         return [
@@ -56,7 +71,7 @@ def fetch_openai_ot_threat_intel():
                 'id': str(uuid.uuid4()),
                 'title': 'Example PLC Malware Campaign',
                 'summary': 'A new malware targets Siemens S7-1500 PLCs via the S7 protocol.',
-                'source': 'OpenAI',
+                'source': provider,
                 'retrieved_at': now,
                 'affected_vendors': ['Siemens'],
                 'threat_type': 'PLC malware',
@@ -134,7 +149,10 @@ def fetch_bulk_openai_ot_threat_intel():
     return entries
 
 def main():
-    entries = fetch_openai_ot_threat_intel()
+    provider = None
+    if len(sys.argv) > 2 and sys.argv[1] == '--provider':
+        provider = sys.argv[2]
+    entries = fetch_openai_ot_threat_intel(provider=provider)
     new_count = 0
     for entry in entries:
         if save_ot_threat_intel(entry):

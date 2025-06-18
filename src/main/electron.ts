@@ -4,6 +4,10 @@ import { spawn } from 'child_process';
 
 let mainWindow: BrowserWindow | null;
 
+// Use venv python if available
+const venvPython = path.join(__dirname, '../../venv/bin/python3');
+const pythonExec = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+
 const createWindow = () => {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -74,8 +78,8 @@ ipcMain.handle('analyze-file', async (_event, filePath: string) => {
 
 // IPC: Check LLM status
 ipcMain.handle('check-llm-status', async () => {
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python3', [
+    return new Promise((resolve) => {
+        const pythonProcess = spawn(pythonExec, [
             path.join(__dirname, '../python/analyzer.py'), '--check-openai'
         ], {
             cwd: path.resolve(__dirname, '../..'),
@@ -86,9 +90,13 @@ ipcMain.handle('check-llm-status', async () => {
         pythonProcess.stderr.on('data', (chunk) => console.error(chunk.toString()));
         pythonProcess.on('close', () => {
             try {
-                resolve(JSON.parse(data));
+                if (!data || !data.trim()) {
+                    resolve({ ok: false, error: 'No response from LLM status check.' });
+                } else {
+                    resolve(JSON.parse(data));
+                }
             } catch (e) {
-                reject(e);
+                resolve({ ok: false, error: 'Invalid JSON from LLM status check.' });
             }
         });
     });

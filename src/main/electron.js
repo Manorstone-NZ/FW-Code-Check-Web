@@ -73,13 +73,18 @@ electron_1.ipcMain.on('perform-analysis', function (event, filePath) {
     event.reply('analysis-results', { /* results */});
 });
 // IPC communication: analyze-file
-electron_1.ipcMain.handle('analyze-file', function (_event, filePath) { return __awaiter(void 0, void 0, void 0, function () {
+electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, new Promise(function (resolve, reject) {
-                var pythonProcess = (0, child_process_1.spawn)('python3', [
+                var args = [
                     path.join(__dirname, '../python/analyzer.py'),
                     filePath
-                ]);
+                ];
+                if (provider) {
+                    args.push('--provider');
+                    args.push(provider);
+                }
+                var pythonProcess = (0, child_process_1.spawn)('python3', args);
                 var data = '';
                 var error = '';
                 pythonProcess.stdout.on('data', function (chunk) {
@@ -201,12 +206,17 @@ electron_1.ipcMain.handle('get-ot-threat-intel-last-sync', function () { return 
     });
 }); });
 // IPC: Sync OT Threat Intel
-electron_1.ipcMain.handle('sync-ot-threat-intel', function () { return __awaiter(void 0, void 0, void 0, function () {
+electron_1.ipcMain.handle('sync-ot-threat-intel', function (_event, provider) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, new Promise(function (resolve, reject) {
-                var py = (0, child_process_1.spawn)('python3', [
+                var args = [
                     path.join(__dirname, '../python/sync_ot_threat_intel.py')
-                ], {
+                ];
+                if (provider) {
+                    args.push('--provider');
+                    args.push(provider);
+                }
+                var py = (0, child_process_1.spawn)('python3', args, {
                     cwd: path.resolve(__dirname, '../..'),
                     env: process.env
                 });
@@ -416,11 +426,16 @@ electron_1.ipcMain.handle('save-baseline', function (_event, fileName, originalN
 });
 // IPC: LLM Compare Analysis to Baseline
 // Args: analysisPathOrContent, baselinePathOrContent (can be file paths or JSON strings)
-electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, analysisPathOrContent, baselinePathOrContent) {
+electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, analysisPathOrContent, baselinePathOrContent, provider) {
     return new Promise(function (resolve, reject) {
-        var py = (0, child_process_1.spawn)('python3', [
+        var args = [
             path.join(__dirname, '../python/analyzer.py'), '--compare', analysisPathOrContent, baselinePathOrContent
-        ], {
+        ];
+        if (provider) {
+            args.push('--provider');
+            args.push(provider);
+        }
+        var py = (0, child_process_1.spawn)('python3', args, {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
         });

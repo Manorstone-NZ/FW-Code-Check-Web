@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { saveBaseline, useAnalyses } from '../utils/analysisApi';
+import { saveBaseline, useAnalyses, analyzeFile as analyzeFileApi } from '../utils/analysisApi';
 import AnalysisDetails from './AnalysisDetails';
 import { useNavigate } from 'react-router-dom';
+import { LLMProviderContext } from '../App';
 
 const FileUploader = () => {
     const [fileName, setFileName] = React.useState<string | null>(null);
@@ -13,6 +14,7 @@ const FileUploader = () => {
     const navigate = useNavigate();
     const [saved, setSaved] = React.useState(false);
     const [showRaw, setShowRaw] = React.useState(false);
+    const { provider: llmProvider } = React.useContext(LLMProviderContext);
 
     const analyzeFile = async (file: File) => {
         setLoading(true);
@@ -20,8 +22,7 @@ const FileUploader = () => {
         setError(null);
         setFilePath(file.path);
         try {
-            // @ts-ignore
-            const analysis = await window.electron.invoke('analyze-file', file.path);
+            const analysis = await analyzeFileApi(file.path, llmProvider);
             setResult(analysis);
             // Refresh analyses list after upload
             refreshAnalyses();

@@ -111,13 +111,24 @@ export function useLLMStatus(pollInterval = 60000) { // Increased to 60 seconds
 
 export async function llmCompareAnalysisToBaseline(
   analysisPathOrContent: string | object,
-  baselinePathOrContent: string | object
+  baselinePathOrContent: string | object,
+  provider?: string
 ) {
   // @ts-ignore
-  return await window.electron.invoke('llm-compare-analysis-baseline', analysisPathOrContent, baselinePathOrContent);
+  return await window.electron.invoke('llm-compare-analysis-baseline', analysisPathOrContent, baselinePathOrContent, provider);
 }
 
 export async function listComparisonHistory(analysisId?: number, baselineId?: number) {
   // @ts-ignore
   return await window.electron.invoke('list-comparison-history', analysisId, baselineId);
+}
+
+export async function analyzeFile(filePath: string, provider?: string) {
+    // @ts-ignore
+    return await window.electron.invoke('analyze-file', filePath, provider);
+}
+
+export async function syncOTThreatIntel(provider?: string) {
+    // @ts-ignore
+    return await window.electron.invoke('sync-ot-threat-intel', provider);
 }

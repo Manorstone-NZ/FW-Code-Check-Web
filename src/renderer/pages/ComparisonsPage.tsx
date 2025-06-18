@@ -1,10 +1,12 @@
 import * as React from 'react';
 import { useAnalyses, useBaselines, llmCompareAnalysisToBaseline, getAnalysisById, getBaselineById } from '../utils/analysisApi';
 import ComparisonProfessionalPanel, { professionalMarkdown } from './ComparisonProfessionalPanel';
+import { LLMProviderContext } from '../App';
 
 const ComparisonsPage = () => {
   const { analyses } = useAnalyses();
   const { baselines } = useBaselines();
+  const { provider: llmProvider } = React.useContext(LLMProviderContext);
   const [selectedAnalysis, setSelectedAnalysis] = React.useState<number | null>(null);
   const [selectedBaseline, setSelectedBaseline] = React.useState<number | null>(null);
   const [savedResults, setSavedResults] = React.useState<{
@@ -53,7 +55,7 @@ const ComparisonsPage = () => {
       };
       let analysisArg = getFilePath(analysis) || JSON.stringify(analysis);
       let baselineArg = getFilePath(baseline) || JSON.stringify(baseline);
-      const result = await llmCompareAnalysisToBaseline(analysisArg, baselineArg);
+      const result = await llmCompareAnalysisToBaseline(analysisArg, baselineArg, llmProvider);
       setLlmResult(result?.llm_comparison || 'No LLM result.');
     } catch (e: any) {
       setLlmError(e?.message || 'LLM comparison failed.');
