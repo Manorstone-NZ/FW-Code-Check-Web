@@ -379,7 +379,11 @@ def main():
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--get-analysis':
         from db import get_analysis
-        print(json.dumps(get_analysis(int(sys.argv[2]))))
+        result = get_analysis(int(sys.argv[2]))
+        if result is None:
+            print(json.dumps({'ok': False, 'error': 'Analysis not found', 'analysis': None}))
+        else:
+            print(json.dumps(result))
         return
     if len(sys.argv) > 1 and sys.argv[1] == '--list-baselines':
         from db import list_baselines

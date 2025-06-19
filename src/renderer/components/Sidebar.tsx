@@ -10,7 +10,8 @@ const navItems = [
   { label: 'Analysis', path: '/analysis' },
   { label: 'Comparisons', path: '/comparisons' },
   { label: 'OT Threat Intel', path: '/ot-threat-intel' }, // New navigation link
-  { label: 'LLM Log', path: '/llm-log' }, // LLM Log now last
+  // Only show LLM Log in development
+  ...(process.env.NODE_ENV !== 'production' ? [{ label: 'LLM Log', path: '/llm-log' }] : []),
 ];
 
 const Sidebar = () => {

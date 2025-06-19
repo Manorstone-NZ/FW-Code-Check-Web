@@ -26,8 +26,10 @@ const ComparisonsPage = () => {
   React.useEffect(() => {
     // @ts-ignore
     window.electron.invoke('get-saved-comparisons').then((results: any[]) => {
+      // Defensive: ensure results is always an array
+      const safeResults = Array.isArray(results) ? results : [];
       // Map llm_result to result for compatibility if needed
-      const mapped = (results || []).map(r => {
+      const mapped = safeResults.map(r => {
         if (r.llm_result && !r.result) {
           return { ...r, result: r.llm_result };
         }

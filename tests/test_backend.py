@@ -86,7 +86,7 @@ class TestDB(unittest.TestCase):
 class TestAnalyzer(unittest.TestCase):
     def test_llm_analysis_mock(self):
         # Patch llm_analysis to not call OpenAI for this test
-        analyzer.llm_analysis = lambda prompt, model=None: 'LLM OK'
+        analyzer.llm_analysis = lambda prompt, model=None, provider=None: 'LLM OK'
         sys_argv = analyzer.sys.argv
         analyzer.sys.argv = ['analyzer.py', 'testfile.txt']
         with open('testfile.txt', 'w') as f:

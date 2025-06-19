@@ -57,19 +57,19 @@ def check_openai_api():
     load_openai_key()
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
-        print('DEBUG: No OPENAI_API_KEY found', file=sys.stderr)
-        return {'ok': False, 'error': 'OPENAI_API_KEY not set in openai.key, .env, or environment.'}
+        print(json.dumps({'ok': False, 'error': 'OPENAI_API_KEY not set in openai.key, .env, or environment.'}))
+        return
     if not openai:
-        print('DEBUG: openai package not installed', file=sys.stderr)
-        return {'ok': False, 'error': 'openai package not installed.'}
+        print(json.dumps({'ok': False, 'error': 'openai package not installed.'}))
+        return
     try:
         client = openai.OpenAI(api_key=api_key)
         models = client.models.list()
-        print(f'DEBUG: models fetched: {[m.id for m in models.data]}', file=sys.stderr)
-        return {'ok': True, 'models': [m.id for m in models.data]}
+        print(json.dumps({'ok': True, 'models': [m.id for m in models.data]}))
+        return
     except Exception as e:
-        print(f'DEBUG: Exception in check_openai_api: {e}', file=sys.stderr)
-        return {'ok': False, 'error': str(e)}
+        print(json.dumps({'ok': False, 'error': str(e)}))
+        return
 
 def ollama_llm_query(prompt, model='llama3'):
     response = requests.post(
@@ -134,8 +134,7 @@ def ensure_analysis_fields(analysis):
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--check-openai':
         try:
-            result = check_openai_api()
-            print(json.dumps(result))
+            check_openai_api()  # This already prints a single JSON object
         except Exception as e:
             print(json.dumps({'ok': False, 'error': str(e)}))
         return
@@ -416,5 +415,10 @@ Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'
 # Only load the key when running as main or when explicitly called
 if __name__ == "__main__":
     load_openai_key()
-    print(json.dumps({"cwd": os.getcwd(), "openai_key_present": bool(os.environ.get('OPENAI_API_KEY')), "openai_key_start": os.environ.get('OPENAI_API_KEY', '')[:8]}), file=sys.stderr)
+    # Print environment info to stderr only, never stdout
+    sys.stderr.write(json.dumps({
+        "cwd": os.getcwd(),
+        "openai_key_present": bool(os.environ.get('OPENAI_API_KEY')),
+        "openai_key_start": os.environ.get('OPENAI_API_KEY', '')[:8]
+    }) + "\n")
     main()

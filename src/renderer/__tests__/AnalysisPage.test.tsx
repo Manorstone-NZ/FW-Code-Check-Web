@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import AnalysisPage from '../pages/AnalysisPage';
 
+// Mock the analysisApi hook and methods
 jest.mock('../utils/analysisApi', () => ({
   useAnalyses: () => ({
     analyses: [
@@ -37,7 +38,6 @@ describe('AnalysisPage', () => {
     expect(screen.getByText('Analysis')).toBeInTheDocument();
     expect(screen.getByText('test1.l5x')).toBeInTheDocument();
     expect(screen.getByText('test2.l5x')).toBeInTheDocument();
-    // Check for action buttons using role and accessible name for reliability
     expect(screen.getAllByRole('button', { name: /view/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /delete/i }).length).toBeGreaterThan(0);
   });
@@ -64,5 +64,35 @@ describe('AnalysisPage', () => {
     expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('Actions')).toBeInTheDocument();
     expect(screen.queryByText('Compare')).not.toBeInTheDocument();
+  });
+
+  it('shows loading state', () => {
+    jest.resetModules();
+    jest.doMock('../utils/analysisApi', () => ({
+      useAnalyses: () => ({ analyses: [], loading: true, error: null, refresh: jest.fn() }),
+      getAnalysisById: async (id: number) => ({ id, fileName: `test${id}.l5x`, date: '2025-06-05', status: 'complete' })
+    }));
+    const AnalysisPageReloaded = require('../pages/AnalysisPage').default;
+    render(
+      <MemoryRouter>
+        <AnalysisPageReloaded />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+
+  it('shows error state', () => {
+    jest.resetModules();
+    jest.doMock('../utils/analysisApi', () => ({
+      useAnalyses: () => ({ analyses: [], loading: false, error: 'Failed to load', refresh: jest.fn() }),
+      getAnalysisById: async (id: number) => ({ id, fileName: `test${id}.l5x`, date: '2025-06-05', status: 'complete' })
+    }));
+    const AnalysisPageReloaded = require('../pages/AnalysisPage').default;
+    render(
+      <MemoryRouter>
+        <AnalysisPageReloaded />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/failed to load/i)).toBeInTheDocument();
   });
 });

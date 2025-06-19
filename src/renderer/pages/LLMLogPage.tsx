@@ -20,9 +20,33 @@ const LLMLogPage: React.FC = () => {
       });
   }, []);
 
+  // Handler to clear the LLM log
+  const handleClearLog = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // @ts-ignore
+      await (window.electron && (window.electron).invoke && (window.electron).invoke('clear-llm-log'));
+      // Refresh logs after clearing
+      // @ts-ignore
+      const data = window.electron && window.electron.invoke ? await window.electron.invoke('get-llm-logs') : [];
+      setLogs(Array.isArray(data) ? [] : []);
+    } catch (e: any) {
+      setError(e && e.message ? e.message : 'Failed to clear log');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="max-w-4xl mx-auto mt-8">
       <h1 className="text-2xl font-bold mb-6 text-[#0275D8]">LLM Interaction Log</h1>
+      <button
+        className="mb-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        onClick={handleClearLog}
+        disabled={loading}
+      >
+        Clear LLM Log
+      </button>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-600">{error}</div>}
       {logs.length === 0 && !loading && !error && <div>No LLM interactions logged yet.</div>}

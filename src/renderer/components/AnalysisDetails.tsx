@@ -143,6 +143,29 @@ function parseOllamaSections(llmText: string) {
   return result;
 }
 
+// Helper to parse LLM response into flexible sections (numbered, markdown, or bold headers)
+function parseFlexibleLLMSections(llmText: string) {
+  if (typeof llmText !== 'string' || !llmText.trim()) return null;
+  // Match numbered headers (e.g., '1. EXECUTIVE SUMMARY'), markdown headers (e.g., '## Executive Summary'), or bolded headers
+  const sectionRegex = /^(\d+\.|##+|\*\*)\s*([A-Z0-9 \-()_]+)(\*\*)?\s*$/gim;
+  const result: Record<string, string> = {};
+  let match;
+  let lastSection = null;
+  let lastIndex = 0;
+  while ((match = sectionRegex.exec(llmText)) !== null) {
+    if (lastSection) {
+      result[lastSection] = llmText.slice(lastIndex, match.index).trim();
+    }
+    // Normalize section name to uppercase and remove extra chars
+    lastSection = match[2].replace(/[^A-Z0-9 \-()_]/gi, '').trim().toUpperCase();
+    lastIndex = sectionRegex.lastIndex;
+  }
+  if (lastSection) {
+    result[lastSection] = llmText.slice(lastIndex).trim();
+  }
+  return result;
+}
+
 const SectionCard = ({ title, children, highlight, noPadding }: { title: string; children: React.ReactNode; highlight?: boolean; noPadding?: boolean }) => (
   <div className={`bg-white rounded-xl shadow-md ${noPadding ? '' : 'p-6'} border ${highlight ? 'border-[#D9534F]' : 'border-gray-100'} mb-6`}> 
     <div className={`font-bold text-xl mb-3 flex items-center gap-2 ${highlight ? 'text-[#D9534F]' : 'text-[#232B3A]'}`}> 
@@ -350,14 +373,23 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   const llm = extractLLMResult(analysis);
   const llmStatus = getLLMStatus(llm);
   // Detect provider (from analysis or context)
-  const detectedProvider = provider || analysis.llm_provider || analysis_json?.provider || 'openai';
-  // Try all parsing strategies
-  const llmSectionsOpenAI = parseNewLLMSections(typeof llm === 'string' ? llm : '');
-  const llmSectionsOllama = parseOllamaSections(typeof llm === 'string' ? llm : '');
-  // Prefer OpenAI if it matches, else Ollama, else fallback
-  const hasOpenAISections = llmSectionsOpenAI && Object.keys(llmSectionsOpenAI).length > 0 && llmSectionsOpenAI['EXECUTIVE SUMMARY'];
-  const hasOllamaSections = Array.isArray(llmSectionsOllama) && llmSectionsOllama.length > 0;
-  const llmSections = hasOpenAISections ? llmSectionsOpenAI : hasOllamaSections ? llmSectionsOllama : null;
+  const detectedProvider = (provider || analysis.llm_provider || analysis_json?.provider || '').toLowerCase();
+
+  // Parse sections based on provider
+  let llmSections: any = {};
+  if (detectedProvider === 'ollama') {
+    // Use Ollama parser for markdown/bolded headers
+    const ollamaSections = parseOllamaSections(typeof llm === 'string' ? llm : '');
+    if (Array.isArray(ollamaSections) && ollamaSections.length > 0) {
+      // Convert array to object for consistent rendering
+      ollamaSections.forEach(({ title, content }) => {
+        llmSections[title.toUpperCase()] = content;
+      });
+    }
+  } else {
+    // Default to flexible parser for OpenAI and others
+    llmSections = parseFlexibleLLMSections(typeof llm === 'string' ? llm : '');
+  }
   const llmSectionsRaw = parseLLMSectionsRaw(typeof llm === 'string' ? llm : '');
   const llmStructured = parseLLMStructured(typeof llm === 'string' ? llm : '');
   const vulnerabilities = analysis_json?.vulnerabilities || [];
@@ -397,7 +429,7 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   }
 
   // Render Ollama sections if detected
-  if (hasOllamaSections) {
+  if (Array.isArray(llmSections) && llmSections.length > 0) {
     // Display all sections in order, with original titles
     return (
       <div className="p-6 max-w-4xl mx-auto">

@@ -76,6 +76,9 @@ electron_1.ipcMain.on('perform-analysis', function (event, filePath) {
 electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, new Promise(function (resolve, reject) {
+                // Debug logging: print filePath and provider
+                console.log('[analyze-file] filePath:', filePath);
+                console.log('[analyze-file] provider:', provider);
                 var args = [
                     path.join(__dirname, '../python/analyzer.py'),
                     filePath
@@ -84,7 +87,11 @@ electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) 
                     args.push('--provider');
                     args.push(provider);
                 }
-                var pythonProcess = (0, child_process_1.spawn)('python3', args);
+                console.log('[analyze-file] Python args:', args);
+                // Use venv Python if available
+                const venvPython = path.join(__dirname, '../../venv/bin/python3');
+                const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+                var pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
                 var data = '';
                 var error = '';
                 pythonProcess.stdout.on('data', function (chunk) {
@@ -93,17 +100,35 @@ electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) 
                 pythonProcess.stderr.on('data', function (chunk) {
                     error += chunk;
                 });
-                pythonProcess.on('close', function (code) {
-                    if (code === 0) {
-                        try {
-                            resolve(JSON.parse(data));
-                        }
-                        catch (e) {
-                            reject(e);
-                        }
+                pythonProcess.on('close', function () {
+                    // Log any stderr output for debugging
+                    if (error) {
+                        console.error('[analyze-file][stderr]', error);
                     }
-                    else {
-                        reject(error || 'Python process failed');
+                    try {
+                        if (!data || data.trim() === '') {
+                            return reject(new Error('No output from Python process'));
+                        }
+                        // Split output into lines and find the last valid JSON object
+                        const lines = data.split(/\r?\n/);
+                        let jsonLine = null;
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                                try {
+                                    JSON.parse(trimmed);
+                                    jsonLine = trimmed; // keep updating, so last valid wins
+                                } catch (e) {
+                                    // Not valid JSON, skip
+                                }
+                            }
+                        }
+                        if (!jsonLine) {
+                            return reject(new Error('No valid JSON output from Python process'));
+                        }
+                        resolve(JSON.parse(jsonLine));
+                    } catch (e) {
+                        reject(e);
                     }
                 });
             })];
@@ -113,17 +138,23 @@ electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) 
 electron_1.ipcMain.handle('check-llm-status', function () { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, new Promise(function (resolve, reject) {
-                var pythonProcess = (0, child_process_1.spawn)('python3', [
-                    path.join(__dirname, '../python/analyzer.py'), '--check-openai'
-                ], {
-                    cwd: path.resolve(__dirname, '../..'),
-                    env: process.env
-                });
+                var pythonProcess = (0, child_process_1.spawn)(
+                    // Use venv Python if available
+                    require('path').join(__dirname, '../../venv/bin/python'),
+                    [require('path').join(__dirname, '../python/analyzer.py'), '--check-openai'],
+                    {
+                        cwd: require('path').resolve(__dirname, '../..'),
+                        env: process.env
+                    }
+                );
                 var data = '';
                 pythonProcess.stdout.on('data', function (chunk) { return data += chunk; });
-                pythonProcess.stderr.on('data', function (chunk) { return console.error(chunk.toString()); });
+                pythonProcess.stderr.on('data', function (chunk) { console.error('[check-llm-status][stderr]', chunk.toString()); });
                 pythonProcess.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -148,6 +179,9 @@ electron_1.ipcMain.handle('list-comparison-history', function (_event, analysisI
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -172,6 +206,9 @@ electron_1.ipcMain.handle('get-ot-threat-intel-entries', function () { return __
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -196,6 +233,9 @@ electron_1.ipcMain.handle('get-ot-threat-intel-last-sync', function () { return 
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -225,6 +265,9 @@ electron_1.ipcMain.handle('sync-ot-threat-intel', function (_event, provider) { 
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -249,6 +292,9 @@ electron_1.ipcMain.handle('update-ot-threat-intel-entry', function (_event, entr
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -273,6 +319,9 @@ electron_1.ipcMain.handle('list-analyses', function () { return __awaiter(void 0
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -297,6 +346,9 @@ electron_1.ipcMain.handle('list-baselines', function () { return __awaiter(void 
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -327,6 +379,9 @@ electron_1.ipcMain.handle('get-saved-comparisons', function () { return __awaite
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -350,6 +405,9 @@ electron_1.ipcMain.handle('save-analysis', function (_event, fileName, status, a
         py.stderr.on('data', function (err) { return console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             }
             catch (e) {
@@ -373,6 +431,9 @@ electron_1.ipcMain.handle('get-analysis', function (_event, analysisId) { return
                 py.stderr.on('data', function (err) { return console.error(err.toString()); });
                 py.on('close', function () {
                     try {
+                        if (!data || data.trim() === '') {
+                            return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                        }
                         resolve(JSON.parse(data));
                     }
                     catch (e) {
@@ -396,6 +457,9 @@ electron_1.ipcMain.handle('get-baseline', function (_event, baselineId) {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -417,6 +481,9 @@ electron_1.ipcMain.handle('save-baseline', function (_event, fileName, originalN
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -444,6 +511,9 @@ electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, ana
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -475,6 +545,9 @@ electron_1.ipcMain.handle('save-comparison-result', function (_event, payload) {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -496,6 +569,9 @@ electron_1.ipcMain.handle('delete-comparison-result', function (_event, comparis
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -536,6 +612,9 @@ electron_1.ipcMain.handle('delete-baseline', function (_event, baselineId) {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -557,6 +636,9 @@ electron_1.ipcMain.handle('delete-analysis', function (_event, analysisId) {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
@@ -578,6 +660,9 @@ electron_1.ipcMain.handle('clear-ot-threat-intel', function () {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 resolve({ ok: true }); // fallback: just return ok
@@ -599,6 +684,9 @@ electron_1.ipcMain.handle('reset-db', function () {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 resolve({ ok: true }); // fallback: just return ok
@@ -620,10 +708,27 @@ electron_1.ipcMain.handle('bulk-ot-threat-intel', function () {
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
             try {
+                if (!data || data.trim() === '') {
+                    return resolve({ ok: false, error: 'No output from Python process', analysis: null });
+                }
                 resolve(JSON.parse(data));
             } catch (e) {
                 reject(e);
             }
+        });
+    });
+});
+// IPC: Clear LLM log (truncate llm-interactions.log.json)
+electron_1.ipcMain.handle('clear-llm-log', function () {
+    return new Promise(function (resolve, reject) {
+        const fs = require('fs');
+        const logPath = path.join(__dirname, '../../llm-interactions.log.json');
+        fs.writeFile(logPath, '[]', 'utf-8', function (err) {
+            if (err) {
+                console.error('Failed to clear LLM log:', err);
+                return reject(err);
+            }
+            resolve({ success: true });
         });
     });
 });
