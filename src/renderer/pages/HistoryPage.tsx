@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useAnalyses, getAnalysisById } from '../utils/analysisApi';
 import CompareAnalysisToBaseline from '../pages/CompareAnalysisToBaseline';
 import AnalysisDetails from '../components/AnalysisDetails';
+import { normalizeInstructionAnalysis } from '../utils/normalizeAnalysis';
 
 const HistoryPage = () => {
   const { analyses, loading, error, refresh } = useAnalyses();
@@ -11,7 +12,7 @@ const HistoryPage = () => {
   const handleView = async (id: number) => {
     setDetails(null);
     const data = await getAnalysisById(id);
-    setDetails(data);
+    setDetails(normalizeInstructionAnalysis(data));
   };
 
   const handleDelete = async (id: number) => {
@@ -66,7 +67,10 @@ const HistoryPage = () => {
       {details && (
         <div className="bg-gray-100 p-4 rounded shadow">
           <h3 className="font-semibold mb-2">Analysis Details</h3>
-          <AnalysisDetails analysis={details} />
+          <AnalysisDetails 
+            analysis={normalizeInstructionAnalysis(details)} 
+            provider={details.provider || details.llm_provider || details.analysis_json?.provider}
+          />
         </div>
       )}
       {compareId && (

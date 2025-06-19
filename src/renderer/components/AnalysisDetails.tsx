@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 
 interface AnalysisDetailsProps {
   analysis: any;
+  provider?: string;
+  model?: string;
 }
 
 type SectionKey = 'SUMMARY' | 'CODE QUALITY' | 'RECOMMENDATIONS' | 'CYBER SECURITY FINDINGS';
@@ -357,9 +359,9 @@ const extractLLMResult = (analysis: any): string | null => {
   return typeof llm === 'string' ? llm : null;
 };
 
-const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
+const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis, provider: propProvider, model: propModel }) => {
   if (!analysis) return null;
-  const { fileName, status, date, analysis_json, provider } = analysis;
+  const { fileName, status, date, analysis_json, provider, model } = analysis;
 
   // Add badge for Analysis or Baseline
   let typeLabel = 'Analysis';
@@ -372,12 +374,13 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
   // Use robust LLM extraction
   const llm = extractLLMResult(analysis);
   const llmStatus = getLLMStatus(llm);
-  // Detect provider (from analysis or context)
-  const detectedProvider = (provider || analysis.llm_provider || analysis_json?.provider || '').toLowerCase();
+  // Detect provider and model (from prop, analysis, or context)
+  const detectedProvider = (propProvider || provider || analysis.llm_provider || analysis_json?.provider || '').toLowerCase();
+  const detectedModel = (propModel || model || analysis.llm_model || analysis_json?.model || '').toLowerCase();
 
-  // Parse sections based on provider
+  // Parse sections based on provider/model
   let llmSections: any = {};
-  if (detectedProvider === 'ollama') {
+  if (detectedProvider === 'ollama' || detectedModel.startsWith('ollama')) {
     // Use Ollama parser for markdown/bolded headers
     const ollamaSections = parseOllamaSections(typeof llm === 'string' ? llm : '');
     if (Array.isArray(ollamaSections) && ollamaSections.length > 0) {
@@ -386,8 +389,11 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
         llmSections[title.toUpperCase()] = content;
       });
     }
+  } else if (detectedProvider === 'openai' || detectedModel.startsWith('gpt')) {
+    // Use flexible parser for OpenAI GPT models
+    llmSections = parseFlexibleLLMSections(typeof llm === 'string' ? llm : '');
   } else {
-    // Default to flexible parser for OpenAI and others
+    // Fallback to flexible parser for unknown providers/models
     llmSections = parseFlexibleLLMSections(typeof llm === 'string' ? llm : '');
   }
   const llmSectionsRaw = parseLLMSectionsRaw(typeof llm === 'string' ? llm : '');
@@ -437,7 +443,7 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = ({ analysis }) => {
           <span className={`inline-block px-3 py-1 text-xs font-semibold text-white rounded-full mr-3 ${typeColor}`}>{typeLabel}</span>
           <span className="text-gray-700 font-bold text-lg truncate">{fileName}</span>
           {date && <span className="ml-4 text-xs text-gray-400">{date}</span>}
-          <span className="ml-4 text-xs text-blue-500">Provider: {detectedProvider}</span>
+          <span className="ml-4 text-xs text-blue-500">Provider: {detectedProvider}{detectedModel ? ` (${detectedModel})` : ''}</span>
         </div>
         {Array.isArray(llmSections)
           ? llmSections.map(({ title, content }, i) =>

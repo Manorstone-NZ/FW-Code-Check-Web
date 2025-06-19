@@ -34,12 +34,14 @@ import requests
 
 LLM_LOG_PATH = os.path.join(os.path.dirname(__file__), '../../llm-interactions.log.json')
 
-def log_llm_interaction(prompt, result, success):
+def log_llm_interaction(prompt, result, success, provider=None, model=None):
     log_entry = {
         'timestamp': datetime.datetime.now().isoformat(),
         'prompt': prompt,
         'result': result,
-        'success': success
+        'success': success,
+        'provider': provider,
+        'model': model
     }
     try:
         if os.path.exists(LLM_LOG_PATH):
@@ -220,7 +222,7 @@ If a section has no content, write "None" under the header. Use markdown formatt
         llm_result = llm_analysis(llm_prompt, model="gpt-4o", provider=provider)
         # Log LLM interaction (comparison mode)
         try:
-            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))
+            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result), provider, "gpt-4o")
         except Exception:
             pass
         print(json.dumps({'llm_comparison': llm_result}))
@@ -371,7 +373,7 @@ Now analyse the following PCS7 Function Block logic (partial STL/SCL export):\n'
         llm_result = llm_analysis(llm_prompt, model="gpt-4o", provider=provider)
         # Log LLM interaction (main analysis mode)
         try:
-            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result))
+            log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result), provider, "gpt-4o")
         except Exception:
             pass
         # Try to extract instruction_analysis JSON array if present in LLM result

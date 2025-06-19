@@ -155,6 +155,8 @@ const AnalysisPage = () => {
               <th className="py-2 px-3">Type</th>
               <th className="py-2 px-3">Date</th>
               <th className="py-2 px-3">Severity</th>
+              <th className="py-2 px-3">Provider</th>
+              <th className="py-2 px-3">Model</th>
               <th className="py-2 px-3">Actions</th>
             </tr>
           </thead>
@@ -162,6 +164,8 @@ const AnalysisPage = () => {
             {filteredAnalyses.map((a: any) => {
               const isBaseline = a.status && typeof a.status === 'string' && a.status.toLowerCase().includes('baseline');
               const severity = getHighestSeverity(a);
+              const provider = a.provider || a.llm_provider || a.analysis_json?.provider || '';
+              const model = a.model || a.llm_model || a.analysis_json?.model || '';
               return (
                 <tr key={a.id} className={`border-b hover:bg-gray-50 transition ${highlightRow === a.id ? 'ring-2 ring-blue-200' : ''} ${details && details.id === a.id ? 'outline outline-2 outline-blue-400 z-10' : ''}`}>
                   <td className="py-2 px-3">{a.id}</td>
@@ -179,6 +183,8 @@ const AnalysisPage = () => {
                       {severity.label}
                     </span>
                   </td>
+                  <td className="py-2 px-3">{provider}</td>
+                  <td className="py-2 px-3">{model}</td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2 items-center">
                       <button
@@ -207,7 +213,10 @@ const AnalysisPage = () => {
       {details && (
         <div className="bg-gray-100 p-4 rounded shadow">
           <h3 className="font-semibold mb-2">Analysis Details</h3>
-          <AnalysisDetails analysis={details} />
+          <AnalysisDetails 
+            analysis={details} 
+            provider={details.provider || details.llm_provider || details.analysis_json?.provider} 
+          />
         </div>
       )}
       {compareId && (

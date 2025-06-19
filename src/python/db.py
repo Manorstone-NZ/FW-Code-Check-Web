@@ -21,7 +21,9 @@ def init_db():
                 status TEXT,
                 analysis_json TEXT,
                 filePath TEXT,
-                analysis_hash TEXT
+                analysis_hash TEXT,
+                provider TEXT,
+                model TEXT
             )
         ''')
         # Add analysis_json to baselines if not present
@@ -33,7 +35,9 @@ def init_db():
                 date TEXT,
                 filePath TEXT,
                 analysis_json TEXT,
-                analysis_hash TEXT
+                analysis_hash TEXT,
+                provider TEXT,
+                model TEXT
             )
         ''')
         # Migration: add analysis_json if missing
@@ -106,7 +110,7 @@ def get_analysis_hash(analysis_json):
     # Use a stable hash of the analysis_json for uniqueness
     return hashlib.sha256(json.dumps(analysis_json, sort_keys=True).encode('utf-8')).hexdigest() if analysis_json else None
 
-def save_analysis(file_name, status, analysis_json, file_path=None):
+def save_analysis(file_name, status, analysis_json, file_path=None, provider=None, model=None):
     with get_connection() as conn:
         c = conn.cursor()
         analysis_hash = get_analysis_hash(analysis_json)
@@ -115,9 +119,9 @@ def save_analysis(file_name, status, analysis_json, file_path=None):
         if c.fetchone():
             return None  # Already exists, do not insert duplicate
         c.execute('''
-            INSERT INTO analyses (fileName, date, status, analysis_json, filePath, analysis_hash)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (file_name, datetime.now().isoformat(), status, json.dumps(analysis_json), file_path, analysis_hash))
+            INSERT INTO analyses (fileName, date, status, analysis_json, filePath, analysis_hash, provider, model)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (file_name, datetime.now().isoformat(), status, json.dumps(analysis_json), file_path, analysis_hash, provider, model))
         conn.commit()
         return c.lastrowid
 
@@ -136,14 +140,16 @@ def get_analysis(analysis_id):
                 'date': row[2],
                 'status': row[3],
                 'analysis_json': analysis_json,
-                'filePath': row[5] if len(row) > 5 else None
+                'filePath': row[5] if len(row) > 5 else None,
+                'provider': row[7] if len(row) > 7 else None,
+                'model': row[8] if len(row) > 8 else None
             }
         return None
 
 def list_analyses():
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, fileName, date, status, analysis_json, filePath FROM analyses ORDER BY date DESC')
+        c.execute('SELECT id, fileName, date, status, analysis_json, filePath, provider, model FROM analyses ORDER BY date DESC')
         return [
             {
                 'id': row[0],
@@ -151,12 +157,14 @@ def list_analyses():
                 'date': row[2],
                 'status': row[3],
                 'analysis_json': json.loads(row[4]) if row[4] else None,
-                'filePath': row[5]
+                'filePath': row[5],
+                'provider': row[6] if len(row) > 6 else None,
+                'model': row[7] if len(row) > 7 else None
             }
             for row in c.fetchall()
         ]
 
-def save_baseline(file_name, original_name=None, file_path=None, analysis_json=None):
+def save_baseline(file_name, original_name=None, file_path=None, analysis_json=None, provider=None, model=None):
     with get_connection() as conn:
         c = conn.cursor()
         analysis_hash = get_analysis_hash(analysis_json)
@@ -165,9 +173,9 @@ def save_baseline(file_name, original_name=None, file_path=None, analysis_json=N
         if c.fetchone():
             return None  # Already exists, do not insert duplicate
         c.execute('''
-            INSERT INTO baselines (fileName, originalName, date, filePath, analysis_json, analysis_hash)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (file_name, original_name or file_name, datetime.now().isoformat(), file_path, json.dumps(analysis_json) if analysis_json else None, analysis_hash))
+            INSERT INTO baselines (fileName, originalName, date, filePath, analysis_json, analysis_hash, provider, model)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (file_name, original_name or file_name, datetime.now().isoformat(), file_path, json.dumps(analysis_json) if analysis_json else None, analysis_hash, provider, model))
         conn.commit()
         return c.lastrowid
 
@@ -196,7 +204,7 @@ def get_baseline(baseline_id):
 def list_baselines():
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, fileName, originalName, date, filePath, analysis_json FROM baselines ORDER BY date DESC')
+        c.execute('SELECT id, fileName, originalName, date, filePath, analysis_json, provider, model FROM baselines ORDER BY date DESC')
         return [
             {
                 'id': row[0],
@@ -204,7 +212,9 @@ def list_baselines():
                 'originalName': row[2],
                 'date': row[3],
                 'filePath': row[4],
-                'analysis_json': json.loads(row[5]) if row[5] else None
+                'analysis_json': json.loads(row[5]) if row[5] else None,
+                'provider': row[6],
+                'model': row[7]
             }
             for row in c.fetchall()
         ]
@@ -402,8 +412,10 @@ def main():
             analysis_json = json.loads(sys.argv[5]) if len(sys.argv) > 5 else None
         except Exception:
             analysis_json = None
-        print('[DEBUG] --save-baseline args:', file_name, original_name, file_path, type(analysis_json), str(analysis_json)[:200], file=sys.stderr)
-        baseline_id = save_baseline(file_name, original_name, file_path, analysis_json)
+        provider = sys.argv[6] if len(sys.argv) > 6 else None
+        model = sys.argv[7] if len(sys.argv) > 7 else None
+        print('[DEBUG] --save-baseline args:', file_name, original_name, file_path, type(analysis_json), str(analysis_json)[:200], provider, model, file=sys.stderr)
+        baseline_id = save_baseline(file_name, original_name, file_path, analysis_json, provider, model)
         print(json.dumps({'ok': True, 'baseline_id': baseline_id}))
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--delete-baseline':
@@ -432,7 +444,9 @@ def main():
         except Exception:
             analysis_json = {}
         file_path = sys.argv[5] if len(sys.argv) > 5 else None
-        analysis_id = save_analysis(file_name, status, analysis_json, file_path)
+        provider = sys.argv[6] if len(sys.argv) > 6 else None
+        model = sys.argv[7] if len(sys.argv) > 7 else None
+        analysis_id = save_analysis(file_name, status, analysis_json, file_path, provider, model)
         print(json.dumps({'ok': True, 'analysis_id': analysis_id}))
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--delete-comparison-history':

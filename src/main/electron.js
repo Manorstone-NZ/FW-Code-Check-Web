@@ -73,12 +73,13 @@ electron_1.ipcMain.on('perform-analysis', function (event, filePath) {
     event.reply('analysis-results', { /* results */});
 });
 // IPC communication: analyze-file
-electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) { return __awaiter(void 0, void 0, void 0, function () {
+electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider, model) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, new Promise(function (resolve, reject) {
-                // Debug logging: print filePath and provider
+                // Debug logging: print filePath, provider, and model
                 console.log('[analyze-file] filePath:', filePath);
                 console.log('[analyze-file] provider:', provider);
+                console.log('[analyze-file] model:', model);
                 var args = [
                     path.join(__dirname, '../python/analyzer.py'),
                     filePath
@@ -86,6 +87,10 @@ electron_1.ipcMain.handle('analyze-file', function (_event, filePath, provider) 
                 if (provider) {
                     args.push('--provider');
                     args.push(provider);
+                }
+                if (model) {
+                    args.push('--model');
+                    args.push(model);
                 }
                 console.log('[analyze-file] Python args:', args);
                 // Use venv Python if available
@@ -392,10 +397,10 @@ electron_1.ipcMain.handle('get-saved-comparisons', function () { return __awaite
     });
 }); });
 // IPC: Save analysis
-electron_1.ipcMain.handle('save-analysis', function (_event, fileName, status, analysisJson, filePath) {
+electron_1.ipcMain.handle('save-analysis', function (_event, fileName, status, analysisJson, filePath, provider, model) {
     return new Promise(function (resolve, reject) {
         var py = (0, child_process_1.spawn)('python3', [
-            path.join(__dirname, '../python/db.py'), '--save-analysis', fileName, status, JSON.stringify(analysisJson), filePath || ''
+            path.join(__dirname, '../python/db.py'), '--save-analysis', fileName, status, JSON.stringify(analysisJson), filePath || '', provider || '', model || ''
         ], {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
@@ -468,10 +473,10 @@ electron_1.ipcMain.handle('get-baseline', function (_event, baselineId) {
     });
 });
 // Handler for save-baseline
-electron_1.ipcMain.handle('save-baseline', function (_event, fileName, originalName, filePath, analysisJson) {
+electron_1.ipcMain.handle('save-baseline', function (_event, fileName, originalName, filePath, analysisJson, provider, model) {
     return new Promise(function (resolve, reject) {
         var py = (0, child_process_1.spawn)('python3', [
-            path.join(__dirname, '../python/db.py'), '--save-baseline', fileName, originalName || '', filePath || '', JSON.stringify(analysisJson || {})
+            path.join(__dirname, '../python/db.py'), '--save-baseline', fileName, originalName || '', filePath || '', JSON.stringify(analysisJson || {}), provider || '', model || ''
         ], {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
@@ -732,3 +737,38 @@ electron_1.ipcMain.handle('clear-llm-log', function () {
         });
     });
 });
+// IPC: Install Ollama model
+electron_1.ipcMain.handle('install-ollama-model', async (_event, model) => {
+    return new Promise((resolve, reject) => {
+        if (!model) return reject(new Error('No model specified'));
+        const { spawn } = require('child_process');
+        const proc = spawn('ollama', ['pull', model]);
+        let output = '';
+        let error = '';
+        proc.stdout.on('data', chunk => { output += chunk; });
+        proc.stderr.on('data', chunk => { error += chunk; });
+        proc.on('close', code => {
+            if (code === 0) {
+                resolve({ ok: true, output });
+            } else {
+                resolve({ ok: false, error: error || `Failed with code ${code}` });
+            }
+        });
+    });
+});
+// Utility: Install all required Ollama models
+async function installAllOllamaModels() {
+    const models = ['deepseek-coder', 'codellama', 'mistral'];
+    const { spawn } = require('child_process');
+    for (const model of models) {
+        await new Promise((resolve) => {
+            const proc = spawn('ollama', ['pull', model], { stdio: 'inherit' });
+            proc.on('close', () => resolve());
+        });
+    }
+    console.log('All Ollama models installed.');
+}
+// Allow direct invocation from CLI
+if (require.main === module && process.argv.includes('--install-ollama-models')) {
+    installAllOllamaModels();
+}

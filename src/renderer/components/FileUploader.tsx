@@ -4,6 +4,21 @@ import AnalysisDetails from './AnalysisDetails';
 import { useNavigate } from 'react-router-dom';
 import { LLMProviderContext } from '../App';
 
+const OPENAI_MODELS = [
+    { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
+    { label: 'GPT-4', value: 'gpt-4' },
+    { label: 'GPT-4o', value: 'gpt-4o' },
+];
+const OLLAMA_MODELS = [
+    { label: 'DeepSeek Coder', value: 'deepseek-coder' },
+    { label: 'CodeLlama', value: 'codellama' },
+    { label: 'Mistral', value: 'mistral' },
+];
+const PROVIDERS = [
+    { label: 'OpenAI', value: 'openai', models: OPENAI_MODELS },
+    { label: 'Ollama', value: 'ollama', models: OLLAMA_MODELS },
+];
+
 const FileUploader = () => {
     const [fileName, setFileName] = React.useState<string | null>(null);
     const [result, setResult] = React.useState<any>(null);
@@ -15,6 +30,8 @@ const FileUploader = () => {
     const [saved, setSaved] = React.useState(false);
     const [showRaw, setShowRaw] = React.useState(false);
     const { provider: llmProvider } = React.useContext(LLMProviderContext);
+    const [selectedProvider, setSelectedProvider] = React.useState('openai');
+    const [selectedModel, setSelectedModel] = React.useState(OPENAI_MODELS[0].value);
 
     const analyzeFile = async (file: File) => {
         setLoading(true);
@@ -22,7 +39,7 @@ const FileUploader = () => {
         setError(null);
         setFilePath(file.path);
         try {
-            const analysis = await analyzeFileApi(file.path, llmProvider);
+            const analysis = await analyzeFileApi(file.path, selectedProvider, selectedModel);
             setResult(analysis);
             // Refresh analyses list after upload
             refreshAnalyses();
@@ -73,6 +90,14 @@ const FileUploader = () => {
         }
     };
 
+    // Update model list when provider changes
+    React.useEffect(() => {
+        const providerObj = PROVIDERS.find(p => p.value === selectedProvider);
+        if (providerObj && providerObj.models.length > 0) {
+            setSelectedModel(providerObj.models[0].value);
+        }
+    }, [selectedProvider]);
+
     // Define a shared button style for consistency
     const baseBtn = "px-6 py-3 min-w-[160px] rounded-lg font-semibold shadow transition-colors duration-200 flex items-center justify-center gap-2 text-base";
     const btnPrimary = `${baseBtn} bg-blue-600 text-white hover:bg-blue-700`;
@@ -84,6 +109,33 @@ const FileUploader = () => {
     return (
         <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto mt-8">
             <h2 className="mb-4 text-2xl font-bold text-[#0275D8]">Upload PLC Files or Import Analysis</h2>
+            {/* LLM Provider/Model Selector */}
+            <div className="flex flex-row gap-4 mb-4 w-full justify-center">
+                <div>
+                    <label className="block text-xs font-semibold mb-1">Provider</label>
+                    <select
+                        className="border rounded px-2 py-1"
+                        value={selectedProvider}
+                        onChange={e => setSelectedProvider(e.target.value)}
+                    >
+                        {PROVIDERS.map(p => (
+                            <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold mb-1">Model</label>
+                    <select
+                        className="border rounded px-2 py-1"
+                        value={selectedModel}
+                        onChange={e => setSelectedModel(e.target.value)}
+                    >
+                        {PROVIDERS.find(p => p.value === selectedProvider)?.models.map(m => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
             <div className="flex flex-row gap-4 mb-6 w-full justify-center">
                 <label className={btnPrimary + " cursor-pointer"}>
                     Upload JSON Result
@@ -116,7 +168,9 @@ const FileUploader = () => {
                             filePath: filePath,
                             status: 'complete',
                             date: new Date().toISOString(),
-                            analysis_json: result
+                            analysis_json: result,
+                            provider: selectedProvider,
+                            model: selectedModel
                         }} />
                     </div>
                     <div className="flex flex-row flex-wrap gap-4 mt-6 w-full justify-center">
@@ -126,8 +180,11 @@ const FileUploader = () => {
                             onClick={async () => {
                                 if (fileName && result) {
                                     try {
+                                        // Extract provider/model if present in result
+                                        let provider = result?.provider || result?.llm_provider || (result?.analysis_json?.provider) || selectedProvider || '';
+                                        let model = result?.model || result?.llm_model || (result?.analysis_json?.model) || selectedModel || '';
                                         // @ts-ignore
-                                        await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '');
+                                        await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '', provider, model);
                                         setSaved(true);
                                         refreshAnalyses();
                                         alert('Analysis saved to database!');
@@ -144,8 +201,10 @@ const FileUploader = () => {
                             onClick={async () => {
                                 if (fileName && result) {
                                     try {
-                                        // Save the full analysis result as analysis_json
-                                        await saveBaseline(fileName, fileName, filePath || '', result);
+                                        // Extract provider/model if present in result
+                                        let provider = result?.provider || result?.llm_provider || (result?.analysis_json?.provider) || selectedProvider || '';
+                                        let model = result?.model || result?.llm_model || (result?.analysis_json?.model) || selectedModel || '';
+                                        await saveBaseline(fileName, fileName, filePath || '', result, provider, model);
                                         alert('Saved as baseline!');
                                     } catch (e) {
                                         alert('Failed to save as baseline');

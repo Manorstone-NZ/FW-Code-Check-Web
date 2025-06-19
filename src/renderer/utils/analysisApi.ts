@@ -61,9 +61,9 @@ export async function getBaselineById(id: number) {
     return await window.electron.invoke('get-baseline', id);
 }
 
-export async function saveBaseline(fileName: string, originalName?: string, filePath?: string, analysis_json?: any) {
+export async function saveBaseline(fileName: string, originalName?: string, filePath?: string, analysis_json?: any, provider?: string, model?: string) {
     // @ts-ignore
-    return await window.electron.invoke('save-baseline', fileName, originalName, filePath, analysis_json);
+    return await window.electron.invoke('save-baseline', fileName, originalName, filePath, analysis_json, provider, model);
 }
 
 export async function deleteBaseline(id: number) {
@@ -123,9 +123,9 @@ export async function listComparisonHistory(analysisId?: number, baselineId?: nu
   return await window.electron.invoke('list-comparison-history', analysisId, baselineId);
 }
 
-export async function analyzeFile(filePath: string, provider?: string) {
+export async function analyzeFile(filePath: string, provider?: string, model?: string) {
     // @ts-ignore
-    return await window.electron.invoke('analyze-file', filePath, provider);
+    return await window.electron.invoke('analyze-file', filePath, provider, model);
 }
 
 export async function syncOTThreatIntel(provider?: string) {

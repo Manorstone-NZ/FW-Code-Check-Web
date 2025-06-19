@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useBaselines, getBaselineById, deleteBaseline } from '../utils/analysisApi';
 import AnalysisDetails from '../components/AnalysisDetails';
+import { normalizeInstructionAnalysis } from '../utils/normalizeAnalysis';
 
 const BaselinesPage = () => {
   const { baselines, loading, error, refresh } = useBaselines();
@@ -11,7 +12,7 @@ const BaselinesPage = () => {
   const handleView = async (id: number) => {
     setDetails(null);
     const data = await getBaselineById(id);
-    setDetails(data);
+    setDetails(normalizeInstructionAnalysis(data));
   };
 
   const handleDelete = async (id: number) => {
@@ -113,14 +114,17 @@ const BaselinesPage = () => {
         <div className="bg-gray-100 p-4 rounded shadow mt-4">
           <h3 className="font-semibold mb-2">Baseline Details</h3>
           {/* Always pass the full baseline object as analysis_json for full LLM view */}
-          <AnalysisDetails analysis={{
-            fileName: details.fileName || details.originalName || details.name || 'Baseline',
-            status: details.status || 'baseline',
-            date: details.date || details.createdAt || '',
-            analysis_json: details.analysis_json || details,
-            // Also pass filePath if present, for LLM fallback logic
-            filePath: details.filePath || ''
-          }} />
+          <AnalysisDetails 
+            analysis={normalizeInstructionAnalysis({
+              fileName: details.fileName || details.originalName || details.name || 'Baseline',
+              status: details.status || 'baseline',
+              date: details.date || details.createdAt || '',
+              analysis_json: details.analysis_json || details,
+              // Also pass filePath if present, for LLM fallback logic
+              filePath: details.filePath || ''
+            })}
+            provider={details.provider || details.llm_provider || details.analysis_json?.provider}
+          />
         </div>
       )}
     </div>
