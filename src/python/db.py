@@ -232,20 +232,20 @@ def delete_analysis(analysis_id):
         conn.commit()
         return {'ok': True, 'deleted_id': analysis_id}
 
-def save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name=None, baseline_file_name=None):
+def save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name=None, baseline_file_name=None, provider=None, model=None):
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO comparison_history (analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (analysis_id, baseline_id, datetime.now().isoformat(), llm_prompt, llm_result, analysis_file_name, baseline_file_name))
+            INSERT INTO comparison_history (analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (analysis_id, baseline_id, datetime.now().isoformat(), llm_prompt, llm_result, analysis_file_name, baseline_file_name, provider, model))
         conn.commit()
         return c.lastrowid
 
 def list_comparison_history(analysis_id=None, baseline_id=None):
     with get_connection() as conn:
         c = conn.cursor()
-        query = 'SELECT id, analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName FROM comparison_history'
+        query = 'SELECT id, analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model FROM comparison_history'
         params = []
         if analysis_id and baseline_id:
             query += ' WHERE analysisId = ? AND baselineId = ?'
@@ -266,7 +266,9 @@ def list_comparison_history(analysis_id=None, baseline_id=None):
                 'llm_prompt': row[4],
                 'llm_result': row[5],
                 'analysisFileName': row[6],
-                'baselineFileName': row[7]
+                'baselineFileName': row[7],
+                'provider': row[8] if len(row) > 8 else None,
+                'model': row[9] if len(row) > 9 else None
             }
             for row in c.execute(query, params)
         ]
@@ -456,14 +458,16 @@ def main():
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--save-comparison-history':
         from db import save_comparison_history
-        # Accepts: analysis_id, baseline_id, llm_prompt, llm_result, analysisFileName, baselineFileName
+        # Accepts: analysis_id, baseline_id, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model
         analysis_id = int(sys.argv[2]) if sys.argv[2] != 'null' else None
         baseline_id = int(sys.argv[3]) if sys.argv[3] != 'null' else None
         llm_prompt = sys.argv[4]
         llm_result = sys.argv[5]
         analysis_file_name = sys.argv[6] if len(sys.argv) > 6 else None
         baseline_file_name = sys.argv[7] if len(sys.argv) > 7 else None
-        result = save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name, baseline_file_name)
+        provider = sys.argv[8] if len(sys.argv) > 8 else None
+        model = sys.argv[9] if len(sys.argv) > 9 else None
+        result = save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, analysis_file_name, baseline_file_name, provider, model)
         print(json.dumps({'ok': True, 'id': result}))
         return
     if len(sys.argv) > 1 and sys.argv[1] == '--list-ot-threat-intel':

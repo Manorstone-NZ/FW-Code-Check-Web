@@ -104,7 +104,7 @@ const CompareAnalysisToBaseline = ({ analysisId }: { analysisId: number }) => {
     return sections;
   };
 
-  // Helper to get highest severity for an analysis or baseline (copied from AnalysisPage)
+  // Helper to extract highest severity from both JSON and LLM section text (including Ollama-style)
   function getHighestSeverity(obj: any): { label: string, color: string } {
     const levels = ['critical', 'high', 'medium', 'low'];
     const colors: Record<string, string> = {
@@ -125,6 +125,19 @@ const CompareAnalysisToBaseline = ({ analysisId }: { analysisId: number }) => {
     if (!found && Array.isArray(obj.analysis_json?.vulnerabilities)) {
       for (const level of levels) {
         if (obj.analysis_json.vulnerabilities.some((v: any) => (typeof v === 'string' ? v.toLowerCase().includes(level) : JSON.stringify(v).toLowerCase().includes(level)))) {
+          found = level;
+          break;
+        }
+      }
+    }
+    // 3. Check LLM section text for risk levels (OpenAI, Ollama, markdown, etc.)
+    const llmText = obj.llm_results || obj.analysis_json?.llm_results || '';
+    if (!found && typeof llmText === 'string') {
+      // Find all risk level mentions (e.g., 'Risk Level: Medium', 'risk_level": "Medium"')
+      const matches = Array.from(llmText.matchAll(/risk[_ ]?level[":\- ]+([a-z]+)/gi));
+      const foundLevels = matches.map(m => m[1].toLowerCase());
+      for (const level of levels) {
+        if (foundLevels.includes(level)) {
           found = level;
           break;
         }

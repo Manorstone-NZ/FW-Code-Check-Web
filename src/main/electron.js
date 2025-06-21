@@ -500,13 +500,63 @@ electron_1.ipcMain.handle('save-baseline', function (_event, fileName, originalN
 // Args: analysisPathOrContent, baselinePathOrContent (can be file paths or JSON strings)
 electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, analysisPathOrContent, baselinePathOrContent, provider) {
     return new Promise(function (resolve, reject) {
+        const fs = require('fs');
+        const os = require('os');
+        
+        // Helper function to create temp file if needed
+        function ensureFilePath(pathOrContent, prefix) {
+            // If it looks like a file path and exists, use it directly
+            if (typeof pathOrContent === 'string' && pathOrContent.startsWith('/') && fs.existsSync(pathOrContent)) {
+                return pathOrContent;
+            }
+            
+            // Otherwise, create a temporary file
+            const tempPath = path.join(os.tmpdir(), `${prefix}_${Date.now()}.txt`);
+            let content = '';
+            
+            if (typeof pathOrContent === 'string') {
+                // If it's a JSON string, try to extract meaningful content
+                try {
+                    const parsed = JSON.parse(pathOrContent);
+                    
+                    // Try to find original file content in various places
+                    content = parsed.file_content ||
+                             parsed.original_content ||
+                             parsed.analysis_json?.file_content ||
+                             parsed.analysis_json?.original_content ||
+                             parsed.content ||
+                             // If no file content, create a synthetic representation
+                             `File: ${parsed.fileName || 'unknown'}\n\nAnalysis Summary:\n${JSON.stringify(parsed.analysis_json || parsed, null, 2)}`;
+                } catch (e) {
+                    // Not JSON, use as-is (might be actual file content)
+                    content = pathOrContent;
+                }
+            } else {
+                // Object - convert to meaningful content
+                const obj = pathOrContent;
+                content = obj.file_content ||
+                         obj.original_content ||
+                         obj.analysis_json?.file_content ||
+                         obj.analysis_json?.original_content ||
+                         obj.content ||
+                         `File: ${obj.fileName || 'unknown'}\n\nAnalysis Summary:\n${JSON.stringify(obj.analysis_json || obj, null, 2)}`;
+            }
+            
+            fs.writeFileSync(tempPath, content, 'utf8');
+            return tempPath;
+        }
+        
+        const analysisPath = ensureFilePath(analysisPathOrContent, 'analysis');
+        const baselinePath = ensureFilePath(baselinePathOrContent, 'baseline');
+        
         var args = [
-            path.join(__dirname, '../python/analyzer.py'), '--compare', analysisPathOrContent, baselinePathOrContent
+            path.join(__dirname, '../python/analyzer.py'), '--compare', analysisPath, baselinePath
         ];
         if (provider) {
             args.push('--provider');
             args.push(provider);
         }
+        
         var py = (0, child_process_1.spawn)('python3', args, {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
@@ -515,6 +565,14 @@ electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, ana
         py.stdout.on('data', function (chunk) { data += chunk; });
         py.stderr.on('data', function (err) { console.error(err.toString()); });
         py.on('close', function () {
+            // Clean up temp files
+            try {
+                if (analysisPath.includes(os.tmpdir())) fs.unlinkSync(analysisPath);
+                if (baselinePath.includes(os.tmpdir())) fs.unlinkSync(baselinePath);
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+            
             try {
                 if (!data || data.trim() === '') {
                     return resolve({ ok: false, error: 'No output from Python process', analysis: null });
@@ -529,7 +587,7 @@ electron_1.ipcMain.handle('llm-compare-analysis-baseline', function (_event, ana
 // IPC: Save comparison result (manual/professional report)
 electron_1.ipcMain.handle('save-comparison-result', function (_event, payload) {
     return new Promise(function (resolve, reject) {
-        // Accepts: timestamp, result, analysisFileName, baselineFileName
+        // Accepts: timestamp, result, analysisFileName, baselineFileName, provider, model
         // We'll store as much as possible, but analysisId/baselineId may be null
         var analysisId = null;
         var baselineId = null;
@@ -537,10 +595,12 @@ electron_1.ipcMain.handle('save-comparison-result', function (_event, payload) {
         var llm_result = payload.result || '';
         var analysisFileName = payload.analysisFileName || '';
         var baselineFileName = payload.baselineFileName || '';
+        var provider = payload.provider || '';
+        var model = payload.model || '';
         var timestamp = payload.timestamp || new Date().toISOString();
         var py = (0, child_process_1.spawn)('python3', [
             path.join(__dirname, '../python/db.py'), '--save-comparison-history',
-            analysisId, baselineId, llm_prompt, llm_result, analysisFileName, baselineFileName
+            analysisId, baselineId, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model
         ], {
             cwd: path.resolve(__dirname, '../..'),
             env: process.env
@@ -758,7 +818,7 @@ electron_1.ipcMain.handle('install-ollama-model', async (_event, model) => {
 });
 // Utility: Install all required Ollama models
 async function installAllOllamaModels() {
-    const models = ['deepseek-coder', 'codellama', 'mistral'];
+    const models = ['deepseek-coder', 'codellama', 'mistral', 'llama3'];
     const { spawn } = require('child_process');
     for (const model of models) {
         await new Promise((resolve) => {

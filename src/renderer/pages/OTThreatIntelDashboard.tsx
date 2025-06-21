@@ -50,7 +50,7 @@ const OTThreatIntelDashboard: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-blue-900">OT Threat Intelligence Dashboard</h1>
+        <h1 className="text-xl font-bold text-blue-900">OT Threat Intelligence Dashboard</h1>
         <div className="flex items-center gap-4">
           <button
             className="px-4 py-2 bg-blue-700 text-white rounded shadow hover:bg-blue-800 text-sm disabled:opacity-50"

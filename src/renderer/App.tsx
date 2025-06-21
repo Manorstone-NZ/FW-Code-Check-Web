@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
-import FileUploader from './components/FileUploader';
+import FileUploaderPage from './pages/FileUploaderPage';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import BaselinesPage from './pages/BaselinesPage';
@@ -33,7 +33,7 @@ const App = () => {
           <Sidebar />
           <div className="flex flex-col flex-1 min-w-0">
             <header className="bg-white text-[#232B3A] p-6 shadow-sm border-b border-gray-100 flex items-center justify-between">
-              <h1 className="text-2xl font-extrabold tracking-tight">First Watch PLC Code Checker</h1>
+              <h1 className="text-xl font-extrabold tracking-tight">First Watch PLC Code Checker</h1>
               <div className="flex items-center gap-4">
                 <label className="text-sm font-semibold mr-2">LLM Provider:</label>
                 <select
@@ -50,7 +50,7 @@ const App = () => {
             <main className="flex-1 p-10 overflow-auto">
               <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/upload" element={<FileUploader />} />
+                <Route path="/upload" element={<FileUploaderPage />} />
                 <Route path="/baselines" element={<BaselinesPage />} />
                 <Route path="/history" element={<HistoryPage />} />
                 <Route path="/llm-log" element={<LLMLogPage />} />

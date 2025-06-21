@@ -2,7 +2,7 @@
 const { spawn } = require('child_process');
 
 async function installAllOllamaModels() {
-    const models = ['deepseek-coder', 'codellama', 'mistral'];
+    const models = ['deepseek-coder', 'codellama', 'mistral', 'llama3'];
     for (const model of models) {
         await new Promise((resolve) => {
             const proc = spawn('ollama', ['pull', model], { stdio: 'inherit' });

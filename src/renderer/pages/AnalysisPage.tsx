@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { useAnalyses, getAnalysisById } from '../utils/analysisApi';
-import CompareAnalysisToBaseline from '../pages/CompareAnalysisToBaseline';
 import AnalysisDetails from '../components/AnalysisDetails';
 import { useLocation } from 'react-router-dom';
 import { normalizeInstructionAnalysis } from '../utils/normalizeAnalysis';
@@ -9,7 +8,6 @@ import { debugLog } from '../utils/debugLog';
 const AnalysisPage = () => {
   const { analyses, loading, error, refresh } = useAnalyses();
   const [details, setDetails] = React.useState<any | null>(null);
-  const [compareId, setCompareId] = React.useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [highlightRow, setHighlightRow] = React.useState<number | null>(null);
   const location = useLocation();
@@ -72,7 +70,33 @@ const AnalysisPage = () => {
     setDetails(null);
     debugLog('analysis-list-view-details', { analysisId: id });
     const data = await getAnalysisById(id);
-    setDetails(normalizeInstructionAnalysis(data));
+    
+    console.log('AnalysisPage handleView: raw data from getAnalysisById', {
+      id,
+      data: data ? {
+        hasAnalysisJson: !!data.analysis_json,
+        analysisJsonType: typeof data.analysis_json,
+        topLevelKeys: Object.keys(data),
+        provider: data.provider,
+        model: data.model,
+        fileName: data.fileName
+      } : null
+    });
+    
+    const normalizedData = normalizeInstructionAnalysis(data);
+    
+    console.log('AnalysisPage handleView: normalized data', {
+      id,
+      normalizedData: normalizedData ? {
+        hasAnalysisJson: !!normalizedData.analysis_json,
+        topLevelKeys: Object.keys(normalizedData),
+        provider: normalizedData.provider,
+        model: normalizedData.model,
+        fileName: normalizedData.fileName
+      } : null
+    });
+    
+    setDetails(normalizedData);
     setHighlightRow(id);
     setTimeout(() => setHighlightRow(null), 1200);
     setLastUpdated(new Date());
@@ -93,7 +117,7 @@ const AnalysisPage = () => {
     setLastUpdated(new Date());
   };
 
-  // Helper to get highest severity for an analysis (copied from Dashboard)
+  // Helper to extract highest severity from both JSON and LLM section text (including Ollama-style)
   function getHighestSeverity(analysis: any): { label: string, color: string } {
     const levels = ['critical', 'high', 'medium', 'low'];
     const colors: Record<string, string> = {
@@ -119,112 +143,138 @@ const AnalysisPage = () => {
         }
       }
     }
+    // 3. Check LLM section text for risk levels (OpenAI, Ollama, markdown, etc.)
+    const llmText = analysis.llm_results || analysis.analysis_json?.llm_results || '';
+    if (!found && typeof llmText === 'string') {
+      // Find all risk level mentions (e.g., 'Risk Level: Medium', 'risk_level": "Medium"')
+      const matches = Array.from(llmText.matchAll(/risk[_ ]?level[":\- ]+([a-z]+)/gi));
+      const foundLevels = matches.map(m => m[1].toLowerCase());
+      for (const level of levels) {
+        if (foundLevels.includes(level)) {
+          found = level;
+          break;
+        }
+      }
+    }
     if (!found) return { label: 'None', color: 'bg-gray-400 text-white' };
     return { label: found.charAt(0).toUpperCase() + found.slice(1), color: colors[found] };
   }
 
   return (
-    <div className="p-6">
-      {/* Debug panel for troubleshooting */}
-      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 text-xs text-yellow-800 rounded">
-        <div><b>Debug:</b> analyses={analyses.length}, filtered={filteredAnalyses.length}, loading={String(loading)}, error={String(error)}</div>
-      </div>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs text-gray-400">
-          {lastUpdated && <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>}
+    <div className="min-h-screen flex flex-col items-center bg-gray-100 py-12">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-5xl w-full p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Analysis</h2>
+          <div className="flex items-center gap-4">
+            {lastUpdated && (
+              <span className="text-sm text-gray-500">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              onClick={handleRefresh}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
-        <button
-          className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
-          onClick={handleRefresh}
-        >
-          Refresh
-        </button>
-      </div>
-      <h2 className="text-2xl font-bold mb-4">Analysis</h2>
-      {loading && <p>Loading...</p>}
-      {error && <p className="text-red-600">{error}</p>}
-      {(!loading && filteredAnalyses.length === 0) && (
-        <div className="p-8 text-center text-gray-500 text-lg">No analyses found in the database.</div>
-      )}
-      {filteredAnalyses.length > 0 && (
-        <table className="min-w-full bg-white rounded shadow mb-6 text-sm">
-          <thead>
-            <tr className="text-left border-b">
-              <th className="py-2 px-3">ID</th>
-              <th className="py-2 px-3">File Name</th>
-              <th className="py-2 px-3">Type</th>
-              <th className="py-2 px-3">Date</th>
-              <th className="py-2 px-3">Severity</th>
-              <th className="py-2 px-3">Provider</th>
-              <th className="py-2 px-3">Model</th>
-              <th className="py-2 px-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAnalyses.map((a: any) => {
-              const isBaseline = a.status && typeof a.status === 'string' && a.status.toLowerCase().includes('baseline');
-              const severity = getHighestSeverity(a);
-              const provider = a.provider || a.llm_provider || a.analysis_json?.provider || '';
-              const model = a.model || a.llm_model || a.analysis_json?.model || '';
-              return (
-                <tr key={a.id} className={`border-b hover:bg-gray-50 transition ${highlightRow === a.id ? 'ring-2 ring-blue-200' : ''} ${details && details.id === a.id ? 'outline outline-2 outline-blue-400 z-10' : ''}`}>
-                  <td className="py-2 px-3">{a.id}</td>
-                  <td className="py-2 px-3">{a.fileName}</td>
-                  <td className="py-2 px-3">
-                    <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${isBaseline ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>{isBaseline ? 'Baseline' : 'Analysis'}</span>
-                  </td>
-                  <td className="py-2 px-3">{a.date}</td>
-                  <td className="py-2 px-3">
-                    <span
-                      key={severity.label + '-' + a.id}
-                      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 ${severity.color} severity-badge`}
-                      style={severity.label === 'High' ? { backgroundColor: '#facc15', color: '#000', borderColor: '#d1d5db' } : {}}
-                    >
-                      {severity.label}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3">{provider}</td>
-                  <td className="py-2 px-3">{model}</td>
-                  <td className="py-2 px-3">
-                    <div className="flex gap-2 items-center">
-                      <button
-                        className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition"
-                        onClick={() => handleView(a.id)}
-                        aria-label={`View analysis ${a.id}`}
-                      >
-                        View
-                      </button>
-                      <button
-                        className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition"
-                        onClick={() => handleDelete(a.id)}
-                        aria-label={`Delete analysis ${a.id}`}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+        
+        {/* Show stats */}
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {filteredAnalyses.length} of {analyses.length} analyses
+        </div>
+        
+        {loading && <p>Loading...</p>}
+        {error && <p className="text-red-600">{error}</p>}
+        {(!loading && filteredAnalyses.length === 0) && (
+          <div className="p-8 text-center text-gray-500 text-lg">No analyses found in the database.</div>
+        )}
+        
+        {filteredAnalyses.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white rounded shadow mb-6 text-sm">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 px-3">ID</th>
+                  <th className="py-2 px-3">File Name</th>
+                  <th className="py-2 px-3">Type</th>
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3">Severity</th>
+                  <th className="py-2 px-3">Provider</th>
+                  <th className="py-2 px-3">Model</th>
+                  <th className="py-2 px-3">Actions</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-      {/* Always show details panel if any analysis is selected */}
-      {details && (
-        <div className="bg-gray-100 p-4 rounded shadow">
-          <h3 className="font-semibold mb-2">Analysis Details</h3>
-          <AnalysisDetails 
-            analysis={details} 
-            provider={details.provider || details.llm_provider || details.analysis_json?.provider} 
-          />
-        </div>
-      )}
-      {compareId && (
-        <div className="bg-gray-100 p-4 rounded shadow mt-4">
-          <h3 className="font-semibold mb-2">Compare Analysis to Baseline</h3>
-          <CompareAnalysisToBaseline analysisId={compareId} />
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {filteredAnalyses.map((a: any) => {
+                  const isBaseline = a.status && typeof a.status === 'string' && a.status.toLowerCase().includes('baseline');
+                  const severity = getHighestSeverity(a);
+                  const provider = a.provider || a.llm_provider || a.analysis_json?.provider || '';
+                  const model = a.model || a.llm_model || a.analysis_json?.model || '';
+                  return (
+                    <tr key={a.id} className={`border-b hover:bg-gray-50 transition ${
+                      highlightRow === a.id ? 'ring-2 ring-blue-200' : ''
+                    } ${
+                      details && details.id === a.id ? 'bg-blue-50' : ''
+                    }`}>
+                      <td className="py-2 px-3">{a.id}</td>
+                      <td className="py-2 px-3">{a.fileName}</td>
+                      <td className="py-2 px-3">
+                        <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          isBaseline ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'
+                        }`}>
+                          {isBaseline ? 'Baseline' : 'Analysis'}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">{a.date}</td>
+                      <td className="py-2 px-3">
+                        <span
+                          key={severity.label + '-' + a.id}
+                          className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 ${severity.color} severity-badge`}
+                          style={severity.label === 'High' ? { backgroundColor: '#facc15', color: '#000', borderColor: '#d1d5db' } : {}}
+                        >
+                          {severity.label}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">{provider}</td>
+                      <td className="py-2 px-3">{model}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex gap-2 items-center">
+                          <button
+                            className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition"
+                            onClick={() => handleView(a.id)}
+                            aria-label={`View analysis ${a.id}`}
+                          >
+                            View
+                          </button>
+                          <button
+                            className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition"
+                            onClick={() => handleDelete(a.id)}
+                            aria-label={`Delete analysis ${a.id}`}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        {/* Details panel - same as BaselinesPage */}
+        {details && (
+          <div className="bg-gray-50 rounded-xl shadow max-w-4xl w-full mt-8 p-4 mx-auto">
+            <AnalysisDetails 
+              analysis={details} 
+              provider={details.provider || details.llm_provider || details.analysis_json?.provider} 
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

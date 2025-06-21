@@ -3,21 +3,7 @@ import { saveBaseline, useAnalyses, analyzeFile as analyzeFileApi } from '../uti
 import AnalysisDetails from './AnalysisDetails';
 import { useNavigate } from 'react-router-dom';
 import { LLMProviderContext } from '../App';
-
-const OPENAI_MODELS = [
-    { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
-    { label: 'GPT-4', value: 'gpt-4' },
-    { label: 'GPT-4o', value: 'gpt-4o' },
-];
-const OLLAMA_MODELS = [
-    { label: 'DeepSeek Coder', value: 'deepseek-coder' },
-    { label: 'CodeLlama', value: 'codellama' },
-    { label: 'Mistral', value: 'mistral' },
-];
-const PROVIDERS = [
-    { label: 'OpenAI', value: 'openai', models: OPENAI_MODELS },
-    { label: 'Ollama', value: 'ollama', models: OLLAMA_MODELS },
-];
+import LLMProviderModelPicker, { PROVIDERS, OPENAI_MODELS } from './LLMProviderModelPicker';
 
 const FileUploader = () => {
     const [fileName, setFileName] = React.useState<string | null>(null);
@@ -91,12 +77,13 @@ const FileUploader = () => {
     };
 
     // Update model list when provider changes
-    React.useEffect(() => {
-        const providerObj = PROVIDERS.find(p => p.value === selectedProvider);
-        if (providerObj && providerObj.models.length > 0) {
-            setSelectedModel(providerObj.models[0].value);
-        }
-    }, [selectedProvider]);
+    const handleProviderChange = (provider: string) => {
+        setSelectedProvider(provider);
+    };
+
+    const handleModelChange = (model: string) => {
+        setSelectedModel(model);
+    };
 
     // Define a shared button style for consistency
     const baseBtn = "px-6 py-3 min-w-[160px] rounded-lg font-semibold shadow transition-colors duration-200 flex items-center justify-center gap-2 text-base";
@@ -110,31 +97,16 @@ const FileUploader = () => {
         <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto mt-8">
             <h2 className="mb-4 text-2xl font-bold text-[#0275D8]">Upload PLC Files or Import Analysis</h2>
             {/* LLM Provider/Model Selector */}
-            <div className="flex flex-row gap-4 mb-4 w-full justify-center">
-                <div>
-                    <label className="block text-xs font-semibold mb-1">Provider</label>
-                    <select
-                        className="border rounded px-2 py-1"
-                        value={selectedProvider}
-                        onChange={e => setSelectedProvider(e.target.value)}
-                    >
-                        {PROVIDERS.map(p => (
-                            <option key={p.value} value={p.value}>{p.label}</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold mb-1">Model</label>
-                    <select
-                        className="border rounded px-2 py-1"
-                        value={selectedModel}
-                        onChange={e => setSelectedModel(e.target.value)}
-                    >
-                        {PROVIDERS.find(p => p.value === selectedProvider)?.models.map(m => (
-                            <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                    </select>
-                </div>
+            <div className="mb-4 w-full max-w-md">
+                <LLMProviderModelPicker
+                    selectedProvider={selectedProvider}
+                    selectedModel={selectedModel}
+                    onProviderChange={handleProviderChange}
+                    onModelChange={handleModelChange}
+                    layout="horizontal"
+                    size="sm"
+                    className="justify-center"
+                />
             </div>
             <div className="flex flex-row gap-4 mb-6 w-full justify-center">
                 <label className={btnPrimary + " cursor-pointer"}>
@@ -162,17 +134,16 @@ const FileUploader = () => {
             {error && <p className="mb-2 text-red-600">Error: {error}</p>}
             {result !== null && result !== undefined && (
                 <>
-                    <div className="bg-gray-50 rounded-xl shadow max-w-3xl w-full mt-6 p-2">
-                        <AnalysisDetails analysis={{
-                            fileName: fileName,
-                            filePath: filePath,
-                            status: 'complete',
-                            date: new Date().toISOString(),
-                            analysis_json: result,
-                            provider: selectedProvider,
-                            model: selectedModel
-                        }} />
-                    </div>
+                    {/* AnalysisDetails now includes its own container/card styling */}
+                    <AnalysisDetails analysis={{
+                        fileName: fileName,
+                        filePath: filePath,
+                        status: 'complete',
+                        date: new Date().toISOString(),
+                        analysis_json: result,
+                        provider: selectedProvider,
+                        model: selectedModel
+                    }} />
                     <div className="flex flex-row flex-wrap gap-4 mt-6 w-full justify-center">
                         <button
                             className={btnSuccess}
