@@ -832,3 +832,850 @@ async function installAllOllamaModels() {
 if (require.main === module && process.argv.includes('--install-ollama-models')) {
     installAllOllamaModels();
 }
+
+// === AUTHENTICATION IPC HANDLERS ===
+
+// IPC: Register a new user
+electron_1.ipcMain.handle('register-user', (_event, username, email, password, role = 'user') => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--create-user', username, email, password, role];
+        console.log('[register-user] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[register-user] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[register-user] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[register-user] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[register-user] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Authenticate user
+electron_1.ipcMain.handle('authenticate-user', (_event, username, password) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--authenticate-user', username, password];
+        console.log('[authenticate-user] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[authenticate-user] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[authenticate-user] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[authenticate-user] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[authenticate-user] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Create session
+electron_1.ipcMain.handle('create-session', (_event, userId) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--create-session', userId.toString()];
+        console.log('[create-session] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[create-session] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[create-session] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[create-session] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[create-session] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Validate session
+electron_1.ipcMain.handle('validate-session', (_event, sessionToken) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--validate-session', sessionToken];
+        console.log('[validate-session] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[validate-session] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[validate-session] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[validate-session] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[validate-session] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Logout session
+electron_1.ipcMain.handle('logout-session', (_event, sessionToken) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--logout-session', sessionToken];
+        console.log('[logout-session] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[logout-session] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[logout-session] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[logout-session] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[logout-session] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// === END AUTHENTICATION IPC HANDLERS ===
+
+// === USER MANAGEMENT IPC HANDLERS ===
+
+// IPC: List all users (admin only)
+electron_1.ipcMain.handle('list-users', () => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--list-users'];
+        console.log('[list-users] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[list-users] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[list-users] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[list-users] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[list-users] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Delete user
+electron_1.ipcMain.handle('delete-user', (_event, userId) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--delete-user', userId.toString()];
+        console.log('[delete-user] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[delete-user] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[delete-user] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[delete-user] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[delete-user] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Toggle user status
+electron_1.ipcMain.handle('toggle-user-status', (_event, userId, isActive) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--toggle-user-status', userId.toString(), isActive.toString()];
+        console.log('[toggle-user-status] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[toggle-user-status] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[toggle-user-status] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[toggle-user-status] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[toggle-user-status] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// IPC: Reset user password
+electron_1.ipcMain.handle('reset-user-password', (_event, userId, newPassword) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '../python/db.py');
+        const venvPython = path.join(__dirname, '../../venv/bin/python3');
+        const pythonExecutable = require('fs').existsSync(venvPython) ? venvPython : 'python3';
+        
+        const args = [pythonPath, '--reset-user-password', userId.toString(), newPassword];
+        console.log('[reset-user-password] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[reset-user-password] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[reset-user-password] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[reset-user-password] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[reset-user-password] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// === END USER MANAGEMENT IPC HANDLERS ===
+
+// === GIT INTEGRATION IPC HANDLERS ===
+
+// Git: Clone repository
+electron_1.ipcMain.handle('git-clone-repository', (event, url, localPath, branch) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--clone', url, localPath];
+        if (branch) {
+            args.push(branch);
+        }
+        
+        console.log('[git-clone-repository] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-clone-repository] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-clone-repository] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-clone-repository] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-clone-repository] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Connect to repository
+electron_1.ipcMain.handle('git-connect-repository', (event, repoPath) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--connect', repoPath];
+        
+        console.log('[git-connect-repository] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-connect-repository] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-connect-repository] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-connect-repository] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-connect-repository] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Get branches
+electron_1.ipcMain.handle('git-get-branches', () => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--branches'];
+        
+        console.log('[git-get-branches] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-get-branches] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-get-branches] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-get-branches] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-get-branches] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Checkout branch
+electron_1.ipcMain.handle('git-checkout-branch', (event, branchName) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--checkout', branchName];
+        
+        console.log('[git-checkout-branch] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-checkout-branch] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-checkout-branch] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-checkout-branch] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-checkout-branch] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Get files
+electron_1.ipcMain.handle('git-get-files', (event, branch) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--files'];
+        if (branch) {
+            args.push(branch);
+        }
+        
+        console.log('[git-get-files] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-get-files] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-get-files] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-get-files] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-get-files] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Get repository status
+electron_1.ipcMain.handle('git-get-status', () => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--status'];
+        
+        console.log('[git-get-status] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-get-status] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-get-status] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-get-status] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-get-status] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Analyze file from repository
+electron_1.ipcMain.handle('git-analyze-file', (event, filePath, branch, provider, model) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        // First, create a temporary file from the Git repository
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const tempArgs = [pythonPath, '--create-temp-file', filePath];
+        if (branch) {
+            tempArgs.push(branch);
+        }
+        
+        console.log('[git-analyze-file] Creating temp file:', pythonExecutable, tempArgs);
+        
+        const tempProcess = (0, child_process_1.spawn)(pythonExecutable, tempArgs);
+        let tempData = '';
+        let tempError = '';
+        
+        tempProcess.stdout.on('data', (chunk) => {
+            tempData += chunk.toString();
+        });
+        
+        tempProcess.stderr.on('data', (chunk) => {
+            tempError += chunk.toString();
+            console.error('[git-analyze-file] Temp file stderr:', chunk.toString());
+        });
+        
+        tempProcess.on('close', (code) => {
+            if (code === 0 && tempData.trim()) {
+                try {
+                    const tempResult = JSON.parse(tempData.trim());
+                    if (tempResult.success) {
+                        // Now analyze the temporary file
+                        const analyzerPath = path.join(__dirname, '..', '..', 'src', 'python', 'analyzer.py');
+                        const analyzeArgs = [analyzerPath, tempResult.temp_path, provider || 'openai', model || 'gpt-4'];
+                        
+                        console.log('[git-analyze-file] Analyzing temp file:', pythonExecutable, analyzeArgs);
+                        
+                        const analyzeProcess = (0, child_process_1.spawn)(pythonExecutable, analyzeArgs);
+                        let analyzeData = '';
+                        let analyzeError = '';
+                        
+                        analyzeProcess.stdout.on('data', (chunk) => {
+                            analyzeData += chunk.toString();
+                        });
+                        
+                        analyzeProcess.stderr.on('data', (chunk) => {
+                            analyzeError += chunk.toString();
+                            console.error('[git-analyze-file] Analysis stderr:', chunk.toString());
+                        });
+                        
+                        analyzeProcess.on('close', (analyzeCode) => {
+                            // Clean up temp file
+                            if (tempResult.temp_dir) {
+                                const fs = require('fs');
+                                try {
+                                    fs.rmSync(tempResult.temp_dir, { recursive: true, force: true });
+                                } catch (cleanupError) {
+                                    console.warn('[git-analyze-file] Failed to cleanup temp dir:', cleanupError);
+                                }
+                            }
+                            
+                            if (analyzeCode === 0 && analyzeData.trim()) {
+                                try {
+                                    const analyzeResult = JSON.parse(analyzeData.trim());
+                                    // Add Git metadata to the result
+                                    analyzeResult.git_metadata = {
+                                        original_path: tempResult.original_path,
+                                        branch: tempResult.branch,
+                                        analyzed_from_git: true
+                                    };
+                                    console.log('[git-analyze-file] Analysis success:', analyzeResult);
+                                    resolve(analyzeResult);
+                                } catch (parseError) {
+                                    console.error('[git-analyze-file] Analysis parse error:', parseError);
+                                    resolve({ success: false, error: 'Failed to parse analysis response' });
+                                }
+                            } else {
+                                console.error('[git-analyze-file] Analysis failed with code:', analyzeCode, 'Error:', analyzeError);
+                                resolve({ success: false, error: analyzeError || `Analysis failed with code ${analyzeCode}` });
+                            }
+                        });
+                    } else {
+                        resolve(tempResult);
+                    }
+                } catch (parseError) {
+                    console.error('[git-analyze-file] Temp file parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse temp file response' });
+                }
+            } else {
+                console.error('[git-analyze-file] Temp file creation failed with code:', code, 'Error:', tempError);
+                resolve({ success: false, error: tempError || `Temp file creation failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Commit file
+electron_1.ipcMain.handle('git-commit-file', (event, filePath, commitMessage, branch) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--commit-file', filePath, commitMessage];
+        if (branch) {
+            args.push(branch);
+        }
+        
+        console.log('[git-commit-file] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-commit-file] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-commit-file] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-commit-file] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-commit-file] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Push to remote
+electron_1.ipcMain.handle('git-push-to-remote', (event, branch, remote) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--push-to-remote'];
+        if (branch) {
+            args.push(branch);
+        }
+        if (remote) {
+            args.push(remote);
+        }
+        
+        console.log('[git-push-to-remote] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-push-to-remote] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-push-to-remote] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-push-to-remote] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-push-to-remote] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// Git: Copy file from branch
+electron_1.ipcMain.handle('git-copy-file-from-branch', (event, filePath, sourceBranch, targetPath) => __awaiter(void 0, void 0, void 0, function* () {
+    return new Promise((resolve) => {
+        const pythonPath = path.join(__dirname, '..', '..', 'src', 'python', 'git_integration.py');
+        const args = [pythonPath, '--copy-file-from-branch', filePath, sourceBranch];
+        if (targetPath) {
+            args.push(targetPath);
+        }
+        
+        console.log('[git-copy-file-from-branch] Running:', pythonExecutable, args);
+        
+        const pythonProcess = (0, child_process_1.spawn)(pythonExecutable, args);
+        let data = '';
+        let error = '';
+        
+        pythonProcess.stdout.on('data', (chunk) => {
+            data += chunk.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (chunk) => {
+            error += chunk.toString();
+            console.error('[git-copy-file-from-branch] Python stderr:', chunk.toString());
+        });
+        
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && data.trim()) {
+                try {
+                    const result = JSON.parse(data.trim());
+                    console.log('[git-copy-file-from-branch] Success:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.error('[git-copy-file-from-branch] Parse error:', parseError);
+                    resolve({ success: false, error: 'Failed to parse response' });
+                }
+            } else {
+                console.error('[git-copy-file-from-branch] Failed with code:', code, 'Error:', error);
+                resolve({ success: false, error: error || `Process failed with code ${code}` });
+            }
+        });
+    });
+}));
+
+// === END GIT INTEGRATION IPC HANDLERS ===
+
+// IPC: Install Ollama model

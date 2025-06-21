@@ -1,8 +1,8 @@
-import * as React from 'react';
-import FileUploader from '../components/FileUploader';
+import React from 'react';
+import EnhancedFileUploader from '../components/EnhancedFileUploader';
 
 const FileUploaderPage: React.FC = () => {
-  return <FileUploader />;
+  return <EnhancedFileUploader />;
 };
 
 export default FileUploaderPage;

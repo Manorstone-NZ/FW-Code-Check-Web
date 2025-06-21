@@ -1,5 +1,18 @@
-# Python dependencies for First Watch PLC Code Checker
+# Python dependencies for First Watch PLC Code Checker v2
+
+# Core dependencies
 openai>=1.0.0
 requests>=2.25.0
 pyyaml>=6.0
 python-dotenv>=0.19.0
+
+# Git Integration (NEW)
+GitPython==3.1.40
+
+# Optional: Testing dependencies
+pytest==7.4.3
+pytest-mock==3.12.0
+
+# Optional: Development dependencies
+black==23.9.1
+flake8==6.1.0

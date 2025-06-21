@@ -1,9 +1,11 @@
 import os
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import hashlib
+import secrets
+import bcrypt
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '../../firstwatch.db')
 
@@ -13,6 +15,37 @@ def get_connection():
 def init_db():
     with get_connection() as conn:
         c = conn.cursor()
+        
+        # Users table for authentication
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                last_login TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                role TEXT DEFAULT 'user',
+                failed_login_attempts INTEGER DEFAULT 0,
+                locked_until TEXT
+            )
+        ''')
+        
+        # Sessions table for session management
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_token TEXT UNIQUE NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        ''')
+        
         c.execute('''
             CREATE TABLE IF NOT EXISTS analyses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,9 +56,18 @@ def init_db():
                 filePath TEXT,
                 analysis_hash TEXT,
                 provider TEXT,
-                model TEXT
+                model TEXT,
+                user_id INTEGER,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
+        
+        # Migration: add user_id to analyses if missing
+        try:
+            c.execute('ALTER TABLE analyses ADD COLUMN user_id INTEGER')
+        except Exception:
+            pass  # Already exists
+            
         # Add analysis_json to baselines if not present
         c.execute('''
             CREATE TABLE IF NOT EXISTS baselines (
@@ -37,9 +79,17 @@ def init_db():
                 analysis_json TEXT,
                 analysis_hash TEXT,
                 provider TEXT,
-                model TEXT
+                model TEXT,
+                user_id INTEGER,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
+        
+        # Migration: add user_id to baselines if missing
+        try:
+            c.execute('ALTER TABLE baselines ADD COLUMN user_id INTEGER')
+        except Exception:
+            pass  # Already exists
         # Migration: add analysis_json if missing
         try:
             c.execute('ALTER TABLE baselines ADD COLUMN analysis_json TEXT')
@@ -109,6 +159,309 @@ def init_db():
 def get_analysis_hash(analysis_json):
     # Use a stable hash of the analysis_json for uniqueness
     return hashlib.sha256(json.dumps(analysis_json, sort_keys=True).encode('utf-8')).hexdigest() if analysis_json else None
+
+# === USER AUTHENTICATION FUNCTIONS ===
+
+def hash_password(password: str) -> tuple[str, str]:
+    """Hash a password with a random salt using bcrypt"""
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return password_hash.decode('utf-8'), salt.decode('utf-8')
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password against its hash"""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    except Exception:
+        return False
+
+def create_user(username: str, email: str, password: str, role: str = 'user') -> dict:
+    """Create a new user account"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        # Check if username or email already exists
+        c.execute('SELECT id FROM users WHERE username = ? OR email = ?', (username, email))
+        if c.fetchone():
+            return {'success': False, 'error': 'Username or email already exists'}
+        
+        # Hash the password
+        password_hash, salt = hash_password(password)
+        
+        # Create the user
+        try:
+            c.execute('''
+                INSERT INTO users (username, email, password_hash, salt, created_at, role)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, email, password_hash, salt, datetime.now().isoformat(), role))
+            user_id = c.lastrowid
+            conn.commit()
+            
+            return {
+                'success': True,
+                'user': {
+                    'id': user_id,
+                    'username': username,
+                    'email': email,
+                    'role': role,
+                    'created_at': datetime.now().isoformat()
+                }
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+def authenticate_user(username: str, password: str) -> dict:
+    """Authenticate a user and return user info if successful"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        # Get user by username or email
+        c.execute('''
+            SELECT id, username, email, password_hash, role, is_active, failed_login_attempts, locked_until
+            FROM users WHERE (username = ? OR email = ?) AND is_active = 1
+        ''', (username, username))
+        
+        user = c.fetchone()
+        if not user:
+            return {'success': False, 'error': 'Invalid credentials'}
+        
+        user_id, user_username, email, password_hash, role, is_active, failed_attempts, locked_until = user
+        
+        # Check if account is locked
+        if locked_until:
+            lock_time = datetime.fromisoformat(locked_until)
+            if datetime.now() < lock_time:
+                return {'success': False, 'error': 'Account is temporarily locked'}
+        
+        # Verify password
+        if not verify_password(password, password_hash):
+            # Increment failed login attempts
+            failed_attempts += 1
+            lock_until = None
+            
+            # Lock account after 5 failed attempts for 30 minutes
+            if failed_attempts >= 5:
+                lock_until = (datetime.now() + timedelta(minutes=30)).isoformat()
+            
+            c.execute('''
+                UPDATE users SET failed_login_attempts = ?, locked_until = ?
+                WHERE id = ?
+            ''', (failed_attempts, lock_until, user_id))
+            conn.commit()
+            
+            return {'success': False, 'error': 'Invalid credentials'}
+        
+        # Reset failed attempts and update last login
+        c.execute('''
+            UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = ?
+            WHERE id = ?
+        ''', (datetime.now().isoformat(), user_id))
+        conn.commit()
+        
+        return {
+            'success': True,
+            'user': {
+                'id': user_id,
+                'username': user_username,
+                'email': email,
+                'role': role
+            }
+        }
+
+def create_session(user_id: int) -> dict:
+    """Create a new session for a user"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        # Generate secure session token
+        session_token = secrets.token_urlsafe(32)
+        created_at = datetime.now()
+        expires_at = created_at + timedelta(days=7)  # 7 day expiry
+        
+        c.execute('''
+            INSERT INTO user_sessions (user_id, session_token, created_at, expires_at, is_active)
+            VALUES (?, ?, ?, ?, 1)
+        ''', (user_id, session_token, created_at.isoformat(), expires_at.isoformat()))
+        
+        session_id = c.lastrowid
+        conn.commit()
+        
+        return {
+            'success': True,
+            'session': {
+                'id': session_id,
+                'token': session_token,
+                'expires_at': expires_at.isoformat()
+            }
+        }
+
+def validate_session(session_token: str) -> dict:
+    """Validate a session token and return user info if valid"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        c.execute('''
+            SELECT s.id, s.user_id, s.expires_at, u.username, u.email, u.role
+            FROM user_sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.session_token = ? AND s.is_active = 1 AND u.is_active = 1
+        ''', (session_token,))
+        
+        session = c.fetchone()
+        if not session:
+            return {'success': False, 'error': 'Invalid session'}
+        
+        session_id, user_id, expires_at, username, email, role = session
+        
+        # Check if session is expired
+        if datetime.now() > datetime.fromisoformat(expires_at):
+            # Deactivate expired session
+            c.execute('UPDATE user_sessions SET is_active = 0 WHERE id = ?', (session_id,))
+            conn.commit()
+            return {'success': False, 'error': 'Session expired'}
+        
+        return {
+            'success': True,
+            'user': {
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'role': role
+            }
+        }
+
+def logout_session(session_token: str) -> dict:
+    """Logout by deactivating a session"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        c.execute('UPDATE user_sessions SET is_active = 0 WHERE session_token = ?', (session_token,))
+        conn.commit()
+        
+        return {'success': True}
+
+def cleanup_expired_sessions():
+    """Clean up expired sessions"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        c.execute('UPDATE user_sessions SET is_active = 0 WHERE expires_at < ?', (datetime.now().isoformat(),))
+        conn.commit()
+
+def list_users() -> dict:
+    """List all users for admin management"""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            
+            c.execute('''
+                SELECT id, username, email, role, created_at, last_login, is_active, 
+                       failed_login_attempts, locked_until
+                FROM users 
+                ORDER BY created_at DESC
+            ''')
+            
+            users = []
+            for row in c.fetchall():
+                users.append({
+                    'id': row[0],
+                    'username': row[1],
+                    'email': row[2],
+                    'role': row[3],
+                    'created_at': row[4],
+                    'last_login': row[5],
+                    'is_active': bool(row[6]),
+                    'failed_login_attempts': row[7],
+                    'locked_until': row[8]
+                })
+            
+            return {'success': True, 'users': users}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def delete_user(user_id: int) -> dict:
+    """Delete a user by ID"""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            
+            # Check if user exists
+            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            user = c.fetchone()
+            if not user:
+                return {'success': False, 'error': 'User not found'}
+            
+            # Delete user sessions first
+            c.execute('DELETE FROM user_sessions WHERE user_id = ?', (user_id,))
+            
+            # Delete user
+            c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            
+            return {'success': True, 'message': f'User {user[0]} deleted successfully'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def toggle_user_status(user_id: int, is_active: bool) -> dict:
+    """Toggle user active status"""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            
+            # Check if user exists
+            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            user = c.fetchone()
+            if not user:
+                return {'success': False, 'error': 'User not found'}
+            
+            # Update user status
+            c.execute('UPDATE users SET is_active = ? WHERE id = ?', (is_active, user_id))
+            
+            # If deactivating, also deactivate all sessions
+            if not is_active:
+                c.execute('UPDATE user_sessions SET is_active = 0 WHERE user_id = ?', (user_id,))
+            
+            conn.commit()
+            
+            status = 'activated' if is_active else 'deactivated'
+            return {'success': True, 'message': f'User {user[0]} {status} successfully'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def reset_user_password(user_id: int, new_password: str) -> dict:
+    """Reset user password"""
+    try:
+        if len(new_password) < 8:
+            return {'success': False, 'error': 'Password must be at least 8 characters long'}
+        
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        with get_connection() as conn:
+            c = conn.cursor()
+            
+            # Check if user exists
+            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            user = c.fetchone()
+            if not user:
+                return {'success': False, 'error': 'User not found'}
+            
+            # Update password and reset failed attempts
+            c.execute('''
+                UPDATE users 
+                SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL
+                WHERE id = ?
+            ''', (password_hash, user_id))
+            
+            # Deactivate all existing sessions to force re-login
+            c.execute('UPDATE user_sessions SET is_active = 0 WHERE user_id = ?', (user_id,))
+            
+            conn.commit()
+            
+            return {'success': True, 'message': f'Password reset successfully for user {user[0]}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+# === END USER AUTHENTICATION FUNCTIONS ===
 
 def save_analysis(file_name, status, analysis_json, file_path=None, provider=None, model=None):
     with get_connection() as conn:
@@ -382,6 +735,8 @@ def clear_all_data():
         c.execute('DELETE FROM comparison_history')
         c.execute('DELETE FROM ot_threat_intel')
         c.execute('DELETE FROM audit_log')
+        c.execute('DELETE FROM users')
+        c.execute('DELETE FROM user_sessions')
         conn.commit()
 
 def main():
@@ -491,6 +846,73 @@ def main():
         clear_all_data()
         print(json.dumps({'ok': True, 'message': 'All data cleared from database.'}))
         return
+    
+    # Authentication commands
+    if len(sys.argv) > 4 and sys.argv[1] == '--create-user':
+        username = sys.argv[2]
+        email = sys.argv[3]
+        password = sys.argv[4]
+        role = sys.argv[5] if len(sys.argv) > 5 else 'user'
+        result = create_user(username, email, password, role)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 3 and sys.argv[1] == '--authenticate-user':
+        username = sys.argv[2]
+        password = sys.argv[3]
+        result = authenticate_user(username, password)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 2 and sys.argv[1] == '--create-session':
+        user_id = int(sys.argv[2])
+        result = create_session(user_id)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 2 and sys.argv[1] == '--validate-session':
+        session_token = sys.argv[2]
+        result = validate_session(session_token)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 2 and sys.argv[1] == '--logout-session':
+        session_token = sys.argv[2]
+        result = logout_session(session_token)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 1 and sys.argv[1] == '--cleanup-sessions':
+        cleanup_expired_sessions()
+        print(json.dumps({'ok': True, 'message': 'Expired sessions cleaned up'}))
+        return
+    
+    # User management commands
+    if len(sys.argv) > 1 and sys.argv[1] == '--list-users':
+        result = list_users()
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 2 and sys.argv[1] == '--delete-user':
+        user_id = int(sys.argv[2])
+        result = delete_user(user_id)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 3 and sys.argv[1] == '--toggle-user-status':
+        user_id = int(sys.argv[2])
+        is_active = sys.argv[3].lower() == 'true'
+        result = toggle_user_status(user_id, is_active)
+        print(json.dumps(result))
+        return
+    
+    if len(sys.argv) > 3 and sys.argv[1] == '--reset-user-password':
+        user_id = int(sys.argv[2])
+        new_password = sys.argv[3]
+        result = reset_user_password(user_id, new_password)
+        print(json.dumps(result))
+        return
+    
     init_db()
     print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_PATH}'}))
 
