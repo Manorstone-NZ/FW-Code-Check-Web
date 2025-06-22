@@ -86,7 +86,7 @@ const BaselinesPage = () => {
         <h2 className="text-2xl font-bold mb-6 text-center">Baselines</h2>
         {loading && <p>Loading...</p>}
         {error && <p className="text-red-600">{error}</p>}
-        {baselines.length > 0 && (
+        {baselines && baselines.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white rounded shadow mb-6 text-sm">
               <thead>

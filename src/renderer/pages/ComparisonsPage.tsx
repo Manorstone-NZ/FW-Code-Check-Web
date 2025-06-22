@@ -384,7 +384,7 @@ const ComparisonsPage = () => {
                   <td colSpan={6} className="py-4 text-center text-gray-400">No saved results yet.</td>
                 </tr>
               ) : (
-                savedResults.map((r) => {
+                (savedResults || []).map((r) => {
                   const severity = detectSeverity(r.result || '');
                   let files = (r.analysisFileName && r.baselineFileName)
                     ? `${r.analysisFileName} vs ${r.baselineFileName}`
@@ -456,7 +456,7 @@ const ComparisonsPage = () => {
               onChange={e => setSelectedAnalysis(Number(e.target.value) || null)}
             >
               <option value="">-- Select Analysis --</option>
-              {analyses.map((a: any) => (
+              {(analyses || []).map((a: any) => (
                 <option key={a.id} value={a.id}>{a.fileName} ({a.date})</option>
               ))}
             </select>
@@ -469,7 +469,7 @@ const ComparisonsPage = () => {
               onChange={e => setSelectedBaseline(Number(e.target.value) || null)}
             >
               <option value="">-- Select Baseline --</option>
-              {baselines.map((b: any) => (
+              {(baselines || []).map((b: any) => (
                 <option key={b.id} value={b.id}>{b.fileName} ({b.date})</option>
               ))}
             </select>

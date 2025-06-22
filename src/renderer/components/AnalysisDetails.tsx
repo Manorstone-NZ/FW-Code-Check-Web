@@ -234,12 +234,35 @@ const extractLLMResult = (analysis: any): string | null => {
     || analysis?.analysis_json?.llm_results
     || analysis?.analysis_json?.llm_result;
   
-  // If still not found, try to find a string value in parsedAnalysis that looks like an LLM result
+  // Additional field variations to check
+  if (!llm) {
+    const additionalFields = [
+      'analysis_result', 'result', 'response', 'content', 'output', 
+      'analysis', 'report', 'findings', 'assessment', 'review',
+      'llm_response', 'ai_analysis', 'security_analysis', 'plc_analysis'
+    ];
+    
+    for (const field of additionalFields) {
+      if (parsedAnalysis?.[field] && typeof parsedAnalysis[field] === 'string') {
+        llm = parsedAnalysis[field];
+        break;
+      }
+      if (analysis?.[field] && typeof analysis[field] === 'string') {
+        llm = analysis[field];
+        break;
+      }
+    }
+  }
+  
+  // If still not found, try to find a string value that looks like an LLM result
   if (!llm && parsedAnalysis && typeof parsedAnalysis === 'object') {
     for (const key of Object.keys(parsedAnalysis)) {
       const val = parsedAnalysis[key];
-      if (typeof val === 'string' &&
-        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || val.includes('CYBER SECURITY KEY FINDINGS') || val.includes('SUMMARY') || val.includes('ANALYSIS'))
+      if (typeof val === 'string' && val.length > 50 && // Ensure it's substantial content
+        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || 
+         val.includes('CYBER SECURITY KEY FINDINGS') || val.includes('SUMMARY') || 
+         val.includes('ANALYSIS') || val.includes('FINDINGS') || val.includes('RECOMMENDATIONS') ||
+         val.includes('VULNERABILITY') || val.includes('SECURITY') || val.includes('PLC'))
       ) {
         llm = val;
         break;
@@ -251,8 +274,11 @@ const extractLLMResult = (analysis: any): string | null => {
   if (!llm && typeof analysis === 'object') {
     for (const key of Object.keys(analysis)) {
       const val = analysis[key];
-      if (typeof val === 'string' &&
-        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || val.includes('CYBER SECURITY KEY FINDINGS') || val.includes('SUMMARY') || val.includes('ANALYSIS'))
+      if (typeof val === 'string' && val.length > 50 && // Ensure it's substantial content
+        (val.includes('EXECUTIVE SUMMARY') || val.includes('CODE STRUCTURE & QUALITY REVIEW') || 
+         val.includes('CYBER SECURITY KEY FINDINGS') || val.includes('SUMMARY') || 
+         val.includes('ANALYSIS') || val.includes('FINDINGS') || val.includes('RECOMMENDATIONS') ||
+         val.includes('VULNERABILITY') || val.includes('SECURITY') || val.includes('PLC'))
       ) {
         llm = val;
         break;
@@ -269,6 +295,16 @@ const extractLLMResult = (analysis: any): string | null => {
       }
     } catch (e) {
       // Ignore parse errors
+    }
+  }
+  
+  // Final check: reject clearly non-analysis content
+  if (llm && typeof llm === 'string') {
+    // Filter out generic rejection messages or very short content
+    if (llm.includes("I'm sorry, but I can't assist with that request") ||
+        llm.includes("I cannot provide assistance") ||
+        llm.length < 20) {
+      return null;
     }
   }
   
@@ -358,7 +394,31 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = (props) => {
       {/* LLM preview */}
       <div className="bg-blue-50 rounded-lg shadow p-4 mb-4">
         <b>LLM Result (first 500 chars):</b>
-        <pre className="whitespace-pre-wrap break-words">{llm.slice(0, 500) || 'No LLM result found.'}</pre>
+        {llm ? (
+          <pre className="whitespace-pre-wrap break-words">{llm.slice(0, 500)}</pre>
+        ) : (
+          <div className="mt-2">
+            <div className="text-red-600 font-medium">No LLM result found.</div>
+            <div className="text-sm text-gray-600 mt-2">
+              This can happen when:
+              <ul className="list-disc list-inside mt-1">
+                <li>The uploaded JSON doesn't contain analysis results</li>
+                <li>Analysis content is in an unexpected format or field name</li>
+                <li>The file contains test results or other non-analysis data</li>
+              </ul>
+            </div>
+            {analysis && typeof analysis === 'object' && (
+              <details className="mt-3">
+                <summary className="text-sm text-blue-600 cursor-pointer">
+                  Click to see available fields in this JSON
+                </summary>
+                <div className="text-xs bg-gray-100 p-2 rounded mt-2 font-mono">
+                  Available fields: {Object.keys(analysis).join(', ')}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
       {/* Vulnerabilities */}
       {Array.isArray(vulnerabilities) && vulnerabilities.length > 0 && (

@@ -1,6 +1,7 @@
 import sys
 import json
 import uuid
+import os
 from datetime import datetime
 from db import save_ot_threat_intel, log_audit
 import requests
@@ -29,7 +30,6 @@ def fetch_openai_ot_threat_intel(provider=None):
             content = ollama_llm_query(prompt, model='llama3')
         else:
             import openai
-            import os
             api_key = os.environ.get('OPENAI_API_KEY')
             if not api_key:
                 with open(os.path.join(os.path.dirname(__file__), '../../openai.key')) as f:
@@ -89,7 +89,6 @@ def fetch_openai_ot_threat_intel(provider=None):
 
 # --- Special LLM call for bulk OT threat intel (past year) ---
 def get_openai_api_key():
-    import os
     api_key = os.environ.get('OPENAI_API_KEY')
     if api_key:
         print(f"[DEBUG] Using OPENAI_API_KEY from environment: {api_key[:8]}...", file=sys.stderr)

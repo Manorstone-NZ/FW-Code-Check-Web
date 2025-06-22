@@ -38,6 +38,8 @@ const OTThreatIntelDashboard: React.FC = () => {
 
   const filteredEntries = React.useMemo(() => {
     // Filtering logic (by vendor, protocol, severity, system type, etc.)
+    if (!Array.isArray(entries)) return [];
+    
     return entries.filter(e => {
       if (filters.vendor && !e.affected_vendors.includes(filters.vendor)) return false;
       if (filters.protocol && !e.industrial_protocols.includes(filters.protocol)) return false;
@@ -105,7 +107,7 @@ const OTThreatIntelDashboard: React.FC = () => {
           }}
           disabled={loading}
         >
-          {loading ? 'Populating...' : 'Populate with LLM (10+ past year)'}
+          {loading ? 'Back Filling...' : 'Back Fill Items'}
         </button>
       </div>
     </div>

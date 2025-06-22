@@ -17,9 +17,20 @@ const HistoryPage = () => {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this analysis?')) return;
-    // @ts-ignore
-    await window.electron.invoke('delete-analysis', id);
-    refresh();
+    try {
+      // @ts-ignore
+      const result = await window.electron.invoke('delete-analysis', id);
+      if (result && result.ok) {
+        console.log('Analysis deleted successfully:', result);
+        refresh();
+      } else {
+        console.error('Delete analysis failed:', result);
+        alert('Failed to delete analysis. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting analysis:', error);
+      alert('Error deleting analysis: ' + (error as Error).message);
+    }
   };
 
   // Helper to extract highest severity from both JSON and LLM section text (including Ollama-style)

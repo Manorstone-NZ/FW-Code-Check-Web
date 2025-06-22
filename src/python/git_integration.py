@@ -30,8 +30,8 @@ class GitRepository:
             except git.InvalidGitRepositoryError:
                 logger.error(f"Invalid Git repository at {repo_path}")
     
-    def clone_repository(self, url: str, local_path: str, branch: str = None) -> Dict:
-        """Clone a repository from URL to local path"""
+    def clone_repository(self, url: str, local_path: str, branch: str = None, username: str = None, password: str = None) -> Dict:
+        """Clone a repository from URL to local path with optional authentication"""
         try:
             if os.path.exists(local_path):
                 shutil.rmtree(local_path)
@@ -39,6 +39,20 @@ class GitRepository:
             clone_kwargs = {}
             if branch:
                 clone_kwargs['branch'] = branch
+            
+            # Handle authentication for private repositories
+            if username and password:
+                # Parse the URL to inject credentials
+                from urllib.parse import urlparse, urlunparse
+                parsed = urlparse(url)
+                
+                # Reconstruct URL with credentials
+                netloc = f"{username}:{password}@{parsed.netloc}"
+                auth_url = urlunparse((
+                    parsed.scheme, netloc, parsed.path, 
+                    parsed.params, parsed.query, parsed.fragment
+                ))
+                url = auth_url
             
             self.repo = git.Repo.clone_from(url, local_path, **clone_kwargs)
             self.repo_path = local_path
@@ -83,6 +97,54 @@ class GitRepository:
                 'error': f'Failed to connect to repository: {str(e)}'
             }
     
+    def get_remote_branches(self, url: str) -> Dict:
+        """Get list of remote branches from a Git URL without cloning"""
+        try:
+            # Use git ls-remote to list remote branches
+            result = subprocess.run([
+                'git', 'ls-remote', '--heads', url
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode != 0:
+                return {
+                    'success': False,
+                    'error': f'Failed to list remote branches: {result.stderr}'
+                }
+            
+            branches = []
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split('\t')
+                    if len(parts) == 2:
+                        commit_hash = parts[0]
+                        ref = parts[1]
+                        # Extract branch name from refs/heads/branch_name
+                        if ref.startswith('refs/heads/'):
+                            branch_name = ref.replace('refs/heads/', '')
+                            branches.append({
+                                'name': branch_name,
+                                'type': 'remote',
+                                'commit': commit_hash[:8]
+                            })
+            
+            return {
+                'success': True,
+                'branches': branches,
+                'url': url
+            }
+            
+        except subprocess.TimeoutExpired:
+            return {
+                'success': False,
+                'error': 'Timeout while fetching remote branches'
+            }
+        except Exception as e:
+            logger.error(f"Failed to get remote branches: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Failed to get remote branches: {str(e)}'
+            }
+
     def get_branches(self) -> Dict:
         """Get list of all branches in the repository"""
         if not self.repo:
@@ -92,32 +154,44 @@ class GitRepository:
             branches = []
             
             # Get local branches
-            for branch in self.repo.branches:
-                branches.append({
-                    'name': branch.name,
-                    'type': 'local',
-                    'active': branch == self.repo.active_branch,
-                    'commit': str(branch.commit)[:8]
-                })
+            try:
+                for branch in self.repo.branches:
+                    branches.append({
+                        'name': branch.name,
+                        'type': 'local',
+                        'active': branch == self.repo.active_branch,
+                        'commit': str(branch.commit)[:8]
+                    })
+            except Exception as e:
+                logger.warning(f"Error getting local branches: {str(e)}")
             
             # Get remote branches
-            for remote in self.repo.remotes:
-                for ref in remote.refs:
-                    if not ref.name.endswith('/HEAD'):
-                        branch_name = ref.name.replace(f'{remote.name}/', '')
-                        if not any(b['name'] == branch_name for b in branches):
-                            branches.append({
-                                'name': branch_name,
-                                'type': 'remote',
-                                'remote': remote.name,
-                                'active': False,
-                                'commit': str(ref.commit)[:8]
-                            })
+            try:
+                for remote in self.repo.remotes:
+                    for ref in remote.refs:
+                        if not ref.name.endswith('/HEAD'):
+                            branch_name = ref.name.replace(f'{remote.name}/', '')
+                            if not any(b['name'] == branch_name for b in branches):
+                                branches.append({
+                                    'name': branch_name,
+                                    'type': 'remote',
+                                    'remote': remote.name,
+                                    'active': False,
+                                    'commit': str(ref.commit)[:8]
+                                })
+            except Exception as e:
+                logger.warning(f"Error getting remote branches: {str(e)}")
+            
+            current_branch = None
+            try:
+                current_branch = self.repo.active_branch.name if self.repo.active_branch else None
+            except Exception as e:
+                logger.warning(f"Error getting current branch: {str(e)}")
             
             return {
                 'success': True,
                 'branches': branches,
-                'current_branch': self.repo.active_branch.name if self.repo.active_branch else None
+                'current_branch': current_branch
             }
         except Exception as e:
             logger.error(f"Failed to get branches: {str(e)}")
@@ -165,14 +239,39 @@ class GitRepository:
         try:
             # Default to PLC file extensions
             if file_extensions is None:
-                file_extensions = ['.l5x', '.txt', '.json']
+                file_extensions = ['.l5x', '.l5k', '.acd', '.txt', '.json', '.xml']
             
             files = []
             
             # If branch specified, get files from that branch
             if branch:
                 try:
-                    commit = self.repo.commit(branch)
+                    # Try different ways to resolve the branch
+                    commit = None
+                    
+                    # First try as a local branch
+                    try:
+                        commit = self.repo.commit(branch)
+                    except:
+                        pass
+                    
+                    # If not found, try as remote branch
+                    if not commit:
+                        try:
+                            commit = self.repo.commit(f'origin/{branch}')
+                        except:
+                            pass
+                    
+                    # If still not found, try to find it in all refs
+                    if not commit:
+                        for ref in self.repo.refs:
+                            if ref.name == branch or ref.name.endswith(f'/{branch}'):
+                                commit = ref.commit
+                                break
+                    
+                    if not commit:
+                        raise Exception(f"Branch '{branch}' not found")
+                    
                     tree = commit.tree
                     
                     def traverse_tree(tree, path=""):
@@ -445,6 +544,37 @@ def cleanup_temp_directory(temp_dir: str):
 # Global repository instance
 git_repo = GitRepository()
 
+# Persistent state file for CLI usage
+STATE_FILE = os.path.join(tempfile.gettempdir(), 'plc_git_state.json')
+
+def save_repository_state(repo_path: str):
+    """Save current repository path to state file"""
+    try:
+        state = {'repo_path': repo_path}
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f)
+    except Exception as e:
+        logger.error(f"Failed to save repository state: {str(e)}")
+
+def load_repository_state() -> str:
+    """Load repository path from state file"""
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                state = json.load(f)
+                return state.get('repo_path')
+    except Exception as e:
+        logger.error(f"Failed to load repository state: {str(e)}")
+    return None
+
+def ensure_repository_connection():
+    """Ensure git_repo is connected, loading from state if needed"""
+    global git_repo
+    if not git_repo.repo:
+        saved_path = load_repository_state()
+        if saved_path and os.path.exists(saved_path):
+            git_repo.connect_to_repository(saved_path)
+
 # CLI functions for testing
 def main():
     """Main function for CLI testing"""
@@ -455,6 +585,7 @@ def main():
         print("Commands:")
         print("  --clone <url> <path> [branch]")
         print("  --connect <path>")
+        print("  --remote-branches <url>")
         print("  --branches")
         print("  --checkout <branch>")
         print("  --files [branch]")
@@ -466,12 +597,16 @@ def main():
     
     if command == '--clone':
         if len(sys.argv) < 4:
-            print("Usage: --clone <url> <path> [branch]")
+            print("Usage: --clone <url> <path> [branch] [username] [password]")
             return
         url = sys.argv[2]
         path = sys.argv[3]
         branch = sys.argv[4] if len(sys.argv) > 4 else None
-        result = git_repo.clone_repository(url, path, branch)
+        username = sys.argv[5] if len(sys.argv) > 5 else None
+        password = sys.argv[6] if len(sys.argv) > 6 else None
+        result = git_repo.clone_repository(url, path, branch, username, password)
+        if result['success']:
+            save_repository_state(path)
         print(json.dumps(result, indent=2))
     
     elif command == '--connect':
@@ -480,9 +615,20 @@ def main():
             return
         path = sys.argv[2]
         result = git_repo.connect_to_repository(path)
+        if result['success']:
+            save_repository_state(path)
+        print(json.dumps(result, indent=2))
+    
+    elif command == '--remote-branches':
+        if len(sys.argv) < 3:
+            print("Usage: --remote-branches <url>")
+            return
+        url = sys.argv[2]
+        result = git_repo.get_remote_branches(url)
         print(json.dumps(result, indent=2))
     
     elif command == '--branches':
+        ensure_repository_connection()
         result = git_repo.get_branches()
         print(json.dumps(result, indent=2))
     
@@ -491,15 +637,18 @@ def main():
             print("Usage: --checkout <branch>")
             return
         branch = sys.argv[2]
+        ensure_repository_connection()
         result = git_repo.checkout_branch(branch)
         print(json.dumps(result, indent=2))
     
     elif command == '--files':
         branch = sys.argv[2] if len(sys.argv) > 2 else None
+        ensure_repository_connection()
         result = git_repo.get_files(branch)
         print(json.dumps(result, indent=2))
     
     elif command == '--status':
+        ensure_repository_connection()
         result = git_repo.get_repository_status()
         print(json.dumps(result, indent=2))
     
@@ -509,6 +658,7 @@ def main():
             return
         file_path = sys.argv[2]
         branch = sys.argv[3] if len(sys.argv) > 3 else None
+        ensure_repository_connection()
         result = git_repo.create_temporary_file(file_path, branch)
         print(json.dumps(result, indent=2))
     
@@ -543,6 +693,7 @@ def main():
         print("Available commands:")
         print("  --clone <url> <local_path> [branch]")
         print("  --connect <repo_path>")
+        print("  --remote-branches <url>")
         print("  --branches")
         print("  --checkout <branch>")
         print("  --files [branch]")

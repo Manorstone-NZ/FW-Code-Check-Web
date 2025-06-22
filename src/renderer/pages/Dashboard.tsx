@@ -11,15 +11,15 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   // Compute metrics
-  const totalAnalyses = analyses.length;
-  const totalBaselines = baselines.length;
+  const totalAnalyses = analyses?.length || 0;
+  const totalBaselines = baselines?.length || 0;
   // Vulnerabilities: sum of all vulnerabilities arrays in all analyses
-  const totalVulnerabilities = analyses.reduce((sum, a) => {
+  const totalVulnerabilities = (analyses || []).reduce((sum, a) => {
     const v = a.analysis_json?.vulnerabilities;
     return sum + (Array.isArray(v) ? v.length : 0);
   }, 0);
   // Alarms: sum of all instruction_analysis items with risk_level High or Critical
-  const totalAlarms = analyses.reduce((sum, a) => {
+  const totalAlarms = (analyses || []).reduce((sum, a) => {
     const ia = a.analysis_json?.instruction_analysis;
     if (!Array.isArray(ia)) return sum;
     return sum + ia.filter((item: any) => {
@@ -81,7 +81,7 @@ const Dashboard = () => {
           onClick={() => navigate('/analysis')}
           title="View all analyses"
         >
-          <div className="text-3xl font-bold text-blue-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalAnalyses}</div>
+          <div className="text-2xl font-bold text-blue-800 mb-1 tracking-tight">{loadingAnalyses ? '...' : totalAnalyses}</div>
           <div className="text-blue-900 mt-1 text-base font-semibold uppercase tracking-wide">Total Analyses</div>
         </div>
         {/* Baselines */}
@@ -91,7 +91,7 @@ const Dashboard = () => {
           onClick={() => navigate('/baselines')}
           title="View all baselines"
         >
-          <div className="text-3xl font-bold text-green-800 mb-1 tracking-tight drop-shadow">{loadingBaselines ? '...' : totalBaselines}</div>
+          <div className="text-2xl font-bold text-green-800 mb-1 tracking-tight">{loadingBaselines ? '...' : totalBaselines}</div>
           <div className="text-green-900 mt-1 text-base font-semibold uppercase tracking-wide">Baselines</div>
         </div>
         {/* Vulnerabilities */}
@@ -101,7 +101,7 @@ const Dashboard = () => {
           onClick={() => navigate('/analysis?vuln=1')}
           title="View all detected vulnerabilities"
         >
-          <div className="text-3xl font-bold text-red-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalVulnerabilities}</div>
+          <div className="text-2xl font-bold text-red-800 mb-1 tracking-tight">{loadingAnalyses ? '...' : totalVulnerabilities}</div>
           <div className="text-red-900 mt-1 text-base font-semibold uppercase tracking-wide">Vulnerabilities</div>
         </div>
         {/* Alarms */}
@@ -111,7 +111,7 @@ const Dashboard = () => {
           onClick={() => navigate('/analysis?alarms=1')}
           title="View all detected alarms"
         >
-          <div className="text-3xl font-bold text-yellow-800 mb-1 tracking-tight drop-shadow">{loadingAnalyses ? '...' : totalAlarms}</div>
+          <div className="text-2xl font-bold text-yellow-800 mb-1 tracking-tight">{loadingAnalyses ? '...' : totalAlarms}</div>
           <div className="text-yellow-900 mt-1 text-base font-semibold uppercase tracking-wide">Alarms</div>
         </div>
       </div>

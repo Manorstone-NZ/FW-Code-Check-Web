@@ -15,7 +15,12 @@ module.exports = {
     rules: [
       {
         test: /\.tsx?$/,
-        use: 'ts-loader',
+        use: {
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true, // Faster builds
+          }
+        },
         exclude: /node_modules/,
       },
       {
@@ -23,6 +28,12 @@ module.exports = {
         use: ['style-loader', 'css-loader', 'postcss-loader'],
       },
     ],
+  },
+  optimization: {
+    usedExports: true, // Enable tree shaking
+  },
+  performance: {
+    hints: false, // Disable performance warnings for now
   },
   devServer: {
     static: {

@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface SecurityOverviewProps {
   distribution: {
@@ -31,14 +30,13 @@ const SecurityOverview: React.FC<SecurityOverviewProps> = ({ distribution, timeR
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Security Overview</h3>
           <div className="flex items-center text-sm text-gray-500">
-            <ShieldCheckIcon className="h-4 w-4 mr-1" />
-            Last {timeRange}
+            Security | Last {timeRange}
           </div>
         </div>
 
         {total === 0 ? (
           <div className="text-center py-8">
-            <ShieldCheckIcon className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <div className="text-green-600 text-2xl font-bold mb-4">SECURE</div>
             <p className="text-gray-600">No security issues detected</p>
           </div>
         ) : (

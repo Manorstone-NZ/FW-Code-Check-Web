@@ -1,11 +1,4 @@
 import * as React from 'react';
-import {
-  ExclamationTriangleIcon,
-  ShieldExclamationIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline';
 import { Severity } from '../../../types/core';
 
 interface Alert {
@@ -137,16 +130,16 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
     switch (type) {
       case 'security':
         return severity === 'critical' 
-          ? <ShieldExclamationIcon className="w-5 h-5 text-red-500" />
-          : <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
+          ? <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold">SEC</span>
+          : <span className="w-5 h-5 text-yellow-500 flex items-center justify-center font-bold">!</span>;
       case 'system':
         return severity === 'low'
-          ? <CheckCircleIcon className="w-5 h-5 text-green-500" />
-          : <XCircleIcon className="w-5 h-5 text-red-500" />;
+          ? <span className="w-5 h-5 text-green-500 flex items-center justify-center font-bold text-xs">Good</span>
+          : <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold">SYS</span>;
       case 'processing':
-        return <ClockIcon className="w-5 h-5 text-orange-500" />;
+        return <span className="w-5 h-5 text-orange-500 flex items-center justify-center font-bold">PROC</span>;
       default:
-        return <ExclamationTriangleIcon className="w-5 h-5 text-blue-500" />;
+        return <span className="w-5 h-5 text-blue-500 flex items-center justify-center font-bold">!</span>;
     }
   };
 
@@ -183,7 +176,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
         <div className="space-y-3">
           {filteredAlerts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <CheckCircleIcon className="w-12 h-12 text-green-500 mx-auto mb-2" />
+              <div className="text-green-600 text-2xl font-bold mb-2">ALL CLEAR</div>
               <p>No active alerts</p>
               <p className="text-xs">System is operating normally</p>
             </div>
@@ -226,7 +219,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
                         className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
                         title="Acknowledge"
                       >
-                        ✓
+                        ACK
                       </button>
                     )}
                     
@@ -235,7 +228,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
                       className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100"
                       title="Dismiss"
                     >
-                      ✕
+                      DISMISS
                     </button>
                   </div>
                 </div>

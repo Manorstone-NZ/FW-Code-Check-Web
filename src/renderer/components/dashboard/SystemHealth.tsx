@@ -1,10 +1,4 @@
 import * as React from 'react';
-import { 
-  CpuChipIcon,
-  WifiIcon,
-  CircleStackIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
 
 interface SystemHealthProps {}
 
@@ -14,28 +8,28 @@ const SystemHealth: React.FC<SystemHealthProps> = () => {
       name: 'LLM Services', 
       status: 'up' as 'up' | 'down' | 'degraded', 
       responseTime: 120,
-      icon: CpuChipIcon,
+      label: 'AI',
       lastChecked: new Date().toISOString()
     },
     { 
       name: 'Database', 
       status: 'up' as 'up' | 'down' | 'degraded', 
       responseTime: 5,
-      icon: CircleStackIcon,
+      label: 'DB',
       lastChecked: new Date().toISOString()
     },
     { 
       name: 'File System', 
       status: 'up' as 'up' | 'down' | 'degraded', 
       responseTime: 10,
-      icon: ShieldCheckIcon,
+      label: 'FS',
       lastChecked: new Date().toISOString()
     },
     { 
       name: 'Network', 
       status: 'up' as 'up' | 'down' | 'degraded', 
       responseTime: 25,
-      icon: WifiIcon,
+      label: 'NET',
       lastChecked: new Date().toISOString()
     },
   ]);
@@ -102,12 +96,10 @@ const SystemHealth: React.FC<SystemHealthProps> = () => {
         
         <div className="flex items-center space-x-4">
           {services.map((service) => {
-            const IconComponent = service.icon;
-            return (
-              <div key={service.name} className="flex items-center space-x-1" title={`${service.name}: ${service.status}`}>
-                <IconComponent className={`h-4 w-4 ${getServiceStatusColor(service.status)}`} />
-                <span className="text-xs">{service.responseTime}ms</span>
-              </div>
+            return (            <div key={service.name} className="flex items-center space-x-1" title={`${service.name}: ${service.status}`}>
+              <span className={`text-sm font-bold ${getServiceStatusColor(service.status)}`}>{service.label}</span>
+              <span className="text-xs">{service.responseTime}ms</span>
+            </div>
             );
           })}
         </div>

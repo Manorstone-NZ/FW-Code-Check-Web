@@ -125,6 +125,14 @@ interface GitAnalysisResult {
   [key: string]: any; // Analysis result properties
 }
 
+// Dialog result types
+interface DialogResult {
+  success: boolean;
+  path?: string;
+  cancelled?: boolean;
+  error?: string;
+}
+
 // Electron API declarations
 declare global {
   interface Window {
@@ -143,9 +151,10 @@ declare global {
       resetUserPassword: (userId: number, newPassword: string) => Promise<UserManagementResult>;
       
       // === Git Integration Methods ===
-      gitCloneRepository: (url: string, localPath: string, branch?: string) => Promise<GitResult>;
+      gitCloneRepository: (url: string, localPath: string, branch?: string, username?: string, password?: string) => Promise<GitResult>;
       gitConnectRepository: (repoPath: string) => Promise<GitResult>;
       gitGetBranches: () => Promise<GitBranchResult>;
+      gitGetRemoteBranches: (url: string) => Promise<GitBranchResult>;
       gitCheckoutBranch: (branchName: string) => Promise<GitResult>;
       gitGetFiles: (branch?: string) => Promise<GitFileResult>;
       gitGetStatus: () => Promise<GitStatusResult>;
@@ -153,6 +162,11 @@ declare global {
       gitCommitFile: (filePath: string, commitMessage: string, branch?: string) => Promise<GitCommitResult>;
       gitPushToRemote: (branch?: string, remote?: string) => Promise<GitPushResult>;
       gitCopyFileFromBranch: (filePath: string, sourceBranch: string, targetPath?: string) => Promise<GitResult>;
+      
+      // === Dialog Methods ===
+      showDirectoryPicker: () => Promise<DialogResult>;
+      showSaveDirectoryPicker: () => Promise<DialogResult>;
+      getHomeDirectory: () => Promise<{ success: boolean; path?: string; error?: string }>;
       
       // === Existing Methods ===
       analyzeFile: (filePath: string, provider?: string, model?: string) => Promise<any>;
@@ -177,6 +191,24 @@ declare global {
       deleteBaseline: (baselineId: number) => Promise<any>;
       deleteAnalysis: (analysisId: number) => Promise<any>;
       installOllamaModel: (model: string) => Promise<any>;
+      
+      // === Test Suite Methods ===
+      openTestDashboard: () => Promise<void>;
+      openDevTools: () => Promise<{ success: boolean; error?: string }>;
+    };
+    
+    // Test Runner Interface
+    testRunner?: {
+      runQuickValidation: () => Promise<any>;
+      runFullValidation: () => Promise<any>;
+      runBackendTests: () => Promise<any>;
+      runUITests: () => Promise<any>;
+      runWorkflowTests: () => Promise<any>;
+      runPerformanceTests: () => Promise<any>;
+      runSecurityTests: () => Promise<any>;
+      runIntegrationTests: () => Promise<any>;
+      runFrontendTests: () => Promise<any>;
+      checkAvailability: () => void;
     };
   }
 }

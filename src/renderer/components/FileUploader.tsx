@@ -155,12 +155,22 @@ const FileUploader = () => {
                                         let provider = result?.provider || result?.llm_provider || (result?.analysis_json?.provider) || selectedProvider || '';
                                         let model = result?.model || result?.llm_model || (result?.analysis_json?.model) || selectedModel || '';
                                         // @ts-ignore
-                                        await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '', provider, model);
-                                        setSaved(true);
-                                        refreshAnalyses();
-                                        alert('Analysis saved to database!');
+                                        const saveResult = await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '', provider, model);
+                                        console.log('Save analysis result:', saveResult);
+                                        
+                                        if (saveResult && saveResult.ok) {
+                                            setSaved(true);
+                                            // Add a small delay to ensure database operation is fully committed
+                                            await new Promise(resolve => setTimeout(resolve, 100));
+                                            await refreshAnalyses();
+                                            alert(`Analysis saved to database! (ID: ${saveResult.analysis_id})`);
+                                        } else {
+                                            throw new Error(saveResult?.error || 'Save failed');
+                                        }
                                     } catch (e) {
-                                        alert('Failed to save analysis');
+                                        console.error('Save analysis error:', e);
+                                        const errorMessage = e instanceof Error ? e.message : String(e);
+                                        alert(`Failed to save analysis: ${errorMessage}`);
                                     }
                                 }
                             }}
@@ -218,7 +228,7 @@ const FileUploader = () => {
                                     className={btnDanger + " absolute top-4 right-4 w-10 h-10 !p-0 flex items-center justify-center text-2xl"}
                                     onClick={() => setShowRaw(false)}
                                     aria-label="Close"
-                                >×</button>
+                                >Close</button>
                                 <h2 className="text-lg font-bold mb-4">Raw LLM Output</h2>
                                 <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto max-h-96">{JSON.stringify(result, null, 2)}</pre>
                                 <button

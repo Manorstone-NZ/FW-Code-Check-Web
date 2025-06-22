@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OT Threat Intel Handlers</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #007bff;
+        }
+        
+        .test-button {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .test-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test OT Threat Intel Handlers</h1>
+        
+        <div class="test-section">
+            <h3>🔧 Handler Fix Summary</h3>
+            <p>Fixed OT Threat Intel handlers that were calling wrong Python scripts:</p>
+            <ul>
+                <li>✅ <code>get-ot-threat-intel-entries</code> → now calls <code>db.py --list-ot-threat-intel</code></li>
+                <li>✅ <code>get-ot-threat-intel-last-sync</code> → now calls <code>db.py --get-ot-threat-intel-last-sync</code></li>
+                <li>✅ <code>update-ot-threat-intel-entry</code> → now calls <code>db.py --update-ot-threat-intel</code></li>
+                <li>✅ Added <code>clear-ot-threat-intel</code> and <code>bulk-ot-threat-intel</code> handlers</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 Test Basic Operations</h3>
+            <button class="test-button" onclick="testGetEntries()">📋 Get Entries</button>
+            <button class="test-button" onclick="testGetLastSync()">⏰ Get Last Sync</button>
+            <button class="test-button" onclick="testUpdateEntry()">✏️ Update Entry</button>
+            <button class="test-button" onclick="testClearEntries()">🗑️ Clear Entries</button>
+            <div id="basic-result" class="result">Ready to test basic operations...</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔄 Test Sync Operations</h3>
+            <button class="test-button" onclick="testSync()">🔄 Sync</button>
+            <button class="test-button" onclick="testBulkSync()">📦 Bulk Sync</button>
+            <div id="sync-result" class="result">Ready to test sync operations...</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Overall Status</h3>
+            <button class="test-button" onclick="runAllTests()">🚀 Run All Tests</button>
+            <div id="overall-result" class="result">Ready to run comprehensive tests...</div>
+        </div>
+    </div>
+
+    <script>
+        async function testGetEntries() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing get entries...';
+            
+            try {
+                const result = await window.electronAPI.getOTThreatIntelEntries();
+                resultDiv.innerHTML = `✅ Get Entries SUCCESS!
+Type: ${typeof result}
+Is Array: ${Array.isArray(result)}
+Length: ${Array.isArray(result) ? result.length : 'N/A'}
+Data: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Get Entries FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function testGetLastSync() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing get last sync...';
+            
+            try {
+                const result = await window.electronAPI.getOTThreatIntelLastSync();
+                resultDiv.innerHTML = `✅ Get Last Sync SUCCESS!
+Result: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Get Last Sync FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function testUpdateEntry() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing update entry...';
+            
+            try {
+                const testEntry = {
+                    id: 'test_' + Date.now(),
+                    title: 'Test Threat',
+                    description: 'Test threat description',
+                    severity: 'medium'
+                };
+                const result = await window.electronAPI.updateOTThreatIntelEntry(testEntry);
+                resultDiv.innerHTML = `✅ Update Entry SUCCESS!
+Result: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Update Entry FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function testClearEntries() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing clear entries...';
+            
+            try {
+                const result = await window.electronAPI.clearOTThreatIntel();
+                resultDiv.innerHTML = `✅ Clear Entries SUCCESS!
+Result: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Clear Entries FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function testSync() {
+            const resultDiv = document.getElementById('sync-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing sync (may take a moment)...';
+            
+            try {
+                const result = await window.electronAPI.syncOTThreatIntel('openai');
+                resultDiv.innerHTML = `✅ Sync SUCCESS!
+Result: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Sync FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function testBulkSync() {
+            const resultDiv = document.getElementById('sync-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Testing bulk sync (may take a moment)...';
+            
+            try {
+                const result = await window.electronAPI.bulkOTThreatIntel();
+                resultDiv.innerHTML = `✅ Bulk Sync SUCCESS!
+Result: ${JSON.stringify(result, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Bulk Sync FAILED!
+Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        async function runAllTests() {
+            const resultDiv = document.getElementById('overall-result');
+            resultDiv.innerHTML = '<div class="loading"></div>Running comprehensive tests...';
+            
+            let passed = 0;
+            let total = 0;
+            let results = [];
+            
+            // Test each handler
+            const tests = [
+                { name: 'Get Entries', fn: () => window.electronAPI.getOTThreatIntelEntries() },
+                { name: 'Get Last Sync', fn: () => window.electronAPI.getOTThreatIntelLastSync() },
+                { name: 'Update Entry', fn: () => window.electronAPI.updateOTThreatIntelEntry({id: 'test', title: 'Test'}) },
+                { name: 'Clear Entries', fn: () => window.electronAPI.clearOTThreatIntel() },
+                { name: 'Sync', fn: () => window.electronAPI.syncOTThreatIntel('openai') },
+                { name: 'Bulk Sync', fn: () => window.electronAPI.bulkOTThreatIntel() }
+            ];
+            
+            for (const test of tests) {
+                total++;
+                try {
+                    const result = await test.fn();
+                    results.push(`✅ ${test.name}: SUCCESS`);
+                    passed++;
+                } catch (error) {
+                    results.push(`❌ ${test.name}: FAILED (${error.message})`);
+                }
+            }
+            
+            const successRate = ((passed / total) * 100).toFixed(1);
+            
+            resultDiv.innerHTML = `📊 COMPREHENSIVE TEST RESULTS
+            
+✅ Passed: ${passed}/${total} (${successRate}%)
+
+${results.join('\n')}
+
+${passed === total ? 
+'🎉 ALL OT THREAT INTEL HANDLERS WORKING!' : 
+'⚠️ Some handlers failed - check individual tests above'}`;
+            
+            resultDiv.className = passed === total ? 'result success' : 'result error';
+        }
+        
+        // Auto-run basic test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testGetEntries();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

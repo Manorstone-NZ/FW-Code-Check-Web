@@ -79,6 +79,8 @@ export async function deleteAnalysis(id: number) {
 export function useLLMStatus(pollInterval = 60000) { // Increased to 60 seconds
     const [status, setStatus] = useState<'online' | 'offline' | 'checking'>('checking');
     const [error, setError] = useState<string | null>(null);
+    const [providers, setProviders] = useState<any>(null);
+    const [onlineProviders, setOnlineProviders] = useState<string[]>([]);
 
     const checkStatus = useCallback(async () => {
         setStatus('checking');
@@ -88,13 +90,19 @@ export function useLLMStatus(pollInterval = 60000) { // Increased to 60 seconds
             const result = await window.electron.invoke('check-llm-status');
             if (result && result.ok) {
                 setStatus('online');
+                setProviders(result.providers || null);
+                setOnlineProviders(result.online_providers || []);
             } else {
                 setStatus('offline');
                 setError(result?.error || 'Unknown error');
+                setProviders(result?.providers || null);
+                setOnlineProviders(result?.online_providers || []);
             }
         } catch (e) {
             setStatus('offline');
             setError(e instanceof Error ? e.message : 'Failed to check LLM status');
+            setProviders(null);
+            setOnlineProviders([]);
         }
     }, []);
 
@@ -106,7 +114,7 @@ export function useLLMStatus(pollInterval = 60000) { // Increased to 60 seconds
         }
     }, [checkStatus, pollInterval]);
 
-    return { status, error, refresh: checkStatus };
+    return { status, error, providers, onlineProviders, refresh: checkStatus };
 }
 
 export async function llmCompareAnalysisToBaseline(

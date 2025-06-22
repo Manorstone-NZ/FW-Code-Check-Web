@@ -9,6 +9,7 @@ interface Props {
 
 // Accepts array of objects and extracts unique values for a given key (array or string field)
 const getUnique = (arr: OTThreatIntel[], key: keyof OTThreatIntel): string[] => {
+  if (!Array.isArray(arr)) return [];
   const values = arr.flatMap(e => Array.isArray(e[key]) ? e[key] : [e[key]]);
   return Array.from(new Set(values)).filter(Boolean) as string[];
 };

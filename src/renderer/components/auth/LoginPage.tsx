@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { ExclamationTriangleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 interface LoginPageProps {
   onShowRegister?: () => void;
@@ -44,13 +43,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onShowRegister }) => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div className="mx-auto h-10 w-10 flex items-center justify-center">
+            <img 
+              src="./firstwatch-logo.jpg" 
+              alt="First Watch Logo" 
+              className="h-10 w-10 object-contain"
+            />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Sign in to FirstWatch
+            Sign in to PLC Code Check System
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Secure PLC Code Analysis Platform
@@ -64,7 +65,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onShowRegister }) => {
             <div className="rounded-md bg-red-50 p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                  <span className="h-5 w-5 text-red-400 flex items-center justify-center font-bold">!</span>
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">
@@ -121,11 +122,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onShowRegister }) => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400" />
-                  )}
+                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                    {showPassword ? 'HIDE' : 'SHOW'}
+                  </span>
                 </button>
               </div>
             </div>

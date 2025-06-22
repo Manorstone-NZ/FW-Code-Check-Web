@@ -5,13 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { LLMProviderContext } from '../App';
 import LLMProviderModelPicker, { PROVIDERS, OPENAI_MODELS } from './LLMProviderModelPicker';
 import GitConnectionModal from './git/GitConnectionModal';
-import GitFileBrowser from './git/GitFileBrowser';
-import { 
-    CloudArrowUpIcon, 
-    DocumentIcon, 
-    CodeBracketIcon, 
-    CommandLineIcon 
-} from '@heroicons/react/24/outline';
+import GitFileSelector from './git/GitFileSelector';
 
 const EnhancedFileUploader = () => {
     // Existing state
@@ -30,9 +24,10 @@ const EnhancedFileUploader = () => {
 
     // Git integration state
     const [showGitConnection, setShowGitConnection] = React.useState(false);
-    const [showGitBrowser, setShowGitBrowser] = React.useState(false);
     const [gitRepositoryPath, setGitRepositoryPath] = React.useState<string | null>(null);
     const [gitConnected, setGitConnected] = React.useState(false);
+    const [selectedGitFile, setSelectedGitFile] = React.useState<any>(null);
+    const [selectedGitBranch, setSelectedGitBranch] = React.useState<string>('');
     const [uploadMode, setUploadMode] = React.useState<'local' | 'git'>('local');
 
     // Existing functions
@@ -79,16 +74,93 @@ const EnhancedFileUploader = () => {
             reader.onload = (e) => {
                 try {
                     const json = JSON.parse(e.target?.result as string);
+                    
+                    // Validate that the JSON contains analysis content
+                    const hasLLMContent = validateAnalysisContent(json);
+                    
+                    if (!hasLLMContent.isValid) {
+                        const availableFields = Object.keys(json).slice(0, 10).join(', ');
+                        const fieldCount = Object.keys(json).length;
+                        
+                        alert(
+                            `Warning: This JSON file may not contain LLM analysis results.\n\n` +
+                            `${hasLLMContent.message}\n\n` +
+                            `Available fields (${fieldCount} total): ${availableFields}${fieldCount > 10 ? '...' : ''}\n\n` +
+                            `Expected fields: llm_results, llm_result, analysis_result, or similar.\n\n` +
+                            `You can still proceed, but the analysis view may show "No LLM result found."`
+                        );
+                    }
+                    
                     setResult(json);
                     setFileName(file.name);
                     setFilePath(null);
                     setSaved(false);
                 } catch (err) {
-                    alert('Invalid JSON file.');
+                    alert('Invalid JSON file. Please ensure the file contains valid JSON format.');
                 }
             };
             reader.readAsText(file);
         }
+    };
+
+    // Validate that JSON contains analysis content
+    const validateAnalysisContent = (json: any): { isValid: boolean; message: string } => {
+        if (!json || typeof json !== 'object') {
+            return { isValid: false, message: 'JSON is not a valid object.' };
+        }
+        
+        // Check for direct LLM result fields
+        const directFields = ['llm_results', 'llm_result', 'analysis_result', 'result', 'response', 'content'];
+        for (const field of directFields) {
+            if (json[field] && typeof json[field] === 'string' && json[field].length > 20) {
+                // Check if it's a generic rejection message
+                if (json[field].includes("I'm sorry, but I can't assist") || 
+                    json[field].includes("I cannot provide assistance")) {
+                    return { isValid: false, message: 'Found analysis field but contains rejection message.' };
+                }
+                return { isValid: true, message: 'Valid analysis content found.' };
+            }
+        }
+        
+        // Check for analysis_json field
+        if (json.analysis_json) {
+            try {
+                const parsed = typeof json.analysis_json === 'string' ? 
+                    JSON.parse(json.analysis_json) : json.analysis_json;
+                if (parsed.llm_results || parsed.llm_result || parsed.analysis_result) {
+                    return { isValid: true, message: 'Analysis content found in analysis_json field.' };
+                }
+            } catch (e) {
+                // analysis_json is not valid JSON
+            }
+        }
+        
+        // Look for content that might be analysis-related
+        const analysisKeywords = ['EXECUTIVE SUMMARY', 'CODE STRUCTURE', 'CYBER SECURITY', 'SUMMARY', 'ANALYSIS', 'FINDINGS', 'VULNERABILITY', 'SECURITY', 'PLC'];
+        for (const key of Object.keys(json)) {
+            const value = json[key];
+            if (typeof value === 'string' && value.length > 50) {
+                for (const keyword of analysisKeywords) {
+                    if (value.includes(keyword)) {
+                        return { isValid: true, message: `Analysis-like content found in field: ${key}` };
+                    }
+                }
+            }
+        }
+        
+        // Check if this looks like a test result or other non-analysis JSON
+        const nonAnalysisIndicators = [
+            'numFailedTests', 'numPassedTests', 'testResults', // Jest test results
+            'timestamp', 'status', 'completed', // Generic status objects
+            'success', 'error', 'message' // Generic response objects
+        ];
+        
+        const hasNonAnalysisFields = nonAnalysisIndicators.some(field => json.hasOwnProperty(field));
+        if (hasNonAnalysisFields && Object.keys(json).length < 15) {
+            return { isValid: false, message: 'This appears to be a test result or status file, not an analysis result.' };
+        }
+        
+        return { isValid: false, message: 'No recognizable LLM analysis content found in this JSON.' };
     };
 
     // Git integration functions
@@ -98,7 +170,47 @@ const EnhancedFileUploader = () => {
         setUploadMode('git');
     };
 
+    const handleGitFileSelect = (file: any, branch: string) => {
+        setSelectedGitFile(file);
+        setSelectedGitBranch(branch);
+        setFileName(`${file.name} (${branch})`);
+        setFilePath(`git://${gitRepositoryPath}/${file.path}@${branch}`);
+    };
+
+    const handleGitAnalyze = async () => {
+        if (!selectedGitFile || !selectedGitBranch) {
+            setError('Please select a file from the Git repository');
+            return;
+        }
+
+        setLoading(true);
+        setResult(null);
+        setError(null);
+        
+        try {
+            const analysis = await window.electronAPI.gitAnalyzeFile(
+                selectedGitFile.path, 
+                selectedGitBranch, 
+                selectedProvider, 
+                selectedModel
+            );
+            
+            if (analysis.success) {
+                setResult(analysis);
+                refreshAnalyses();
+            } else {
+                setError(analysis.error || 'Git analysis failed');
+            }
+        } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : 'Git analysis failed';
+            setError(errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleGitAnalyzeFile = async (filePath: string, branch: string, provider: string, model: string) => {
+        // This function is no longer needed but kept for compatibility
         setLoading(true);
         setResult(null);
         setError(null);
@@ -110,8 +222,6 @@ const EnhancedFileUploader = () => {
                 setResult(analysis);
                 setFilePath(`git://${gitRepositoryPath}/${filePath}@${branch}`);
                 refreshAnalyses();
-                // Close Git browser after successful analysis
-                setShowGitBrowser(false);
             } else {
                 setError(analysis.error || 'Git analysis failed');
             }
@@ -230,7 +340,7 @@ const EnhancedFileUploader = () => {
     };
 
     // Define a shared button style for consistency
-    const baseBtn = "px-6 py-3 min-w-[160px] rounded-lg font-semibold shadow transition-colors duration-200 flex items-center justify-center gap-2 text-base";
+    const baseBtn = "px-4 py-2 min-w-[140px] rounded-lg font-semibold shadow transition-colors duration-200 flex items-center justify-center gap-2 text-sm";
     const btnPrimary = `${baseBtn} bg-blue-600 text-white hover:bg-blue-700`;
     const btnSuccess = `${baseBtn} bg-green-600 text-white hover:bg-green-700`;
     const btnSecondary = `${baseBtn} bg-white border-2 border-green-600 text-green-600 hover:bg-green-50 hover:border-green-700`;
@@ -254,7 +364,6 @@ const EnhancedFileUploader = () => {
                                     : 'border-gray-200 hover:border-gray-300'
                             }`}
                         >
-                            <CloudArrowUpIcon className="h-8 w-8 mx-auto mb-2" />
                             <div className="font-medium">Local Files</div>
                             <div className="text-sm opacity-75">Upload from computer</div>
                         </button>
@@ -266,7 +375,6 @@ const EnhancedFileUploader = () => {
                                     : 'border-gray-200 hover:border-gray-300'
                             }`}
                         >
-                            <CommandLineIcon className="h-8 w-8 mx-auto mb-2" />
                             <div className="font-medium">Git Repository</div>
                             <div className="text-sm opacity-75">Analyze from Git</div>
                         </button>
@@ -290,7 +398,7 @@ const EnhancedFileUploader = () => {
                 {uploadMode === 'local' ? (
                     <div className="flex flex-row gap-4 mb-6 w-full justify-center">
                         <label className={btnPrimary + " cursor-pointer"}>
-                            <DocumentIcon className="h-5 w-5" />
+                            <span className="mr-2"></span>
                             Upload JSON Result
                             <input
                                 type="file"
@@ -307,7 +415,7 @@ const EnhancedFileUploader = () => {
                             id="plc-upload-input"
                         />
                         <label htmlFor="plc-upload-input" className={btnSuccess + " cursor-pointer"}>
-                            <CodeBracketIcon className="h-5 w-5" />
+                            <span className="mr-2"></span>
                             Upload PLC File
                         </label>
                     </div>
@@ -318,29 +426,47 @@ const EnhancedFileUploader = () => {
                                 onClick={() => setShowGitConnection(true)}
                                 className={btnPrimary}
                             >
-                                <CommandLineIcon className="h-5 w-5" />
+                                <span className="mr-2"></span>
                                 Connect to Git Repository
                             </button>
                         ) : (
-                            <div className="flex flex-col items-center space-y-4">
-                                <div className="text-center">
+                            <div className="flex flex-col space-y-4 w-full max-w-2xl">
+                                <div className="text-center mb-4">
                                     <div className="text-sm text-gray-600">Connected to:</div>
                                     <div className="font-mono text-sm bg-gray-100 px-3 py-1 rounded">
                                         {gitRepositoryPath}
                                     </div>
                                 </div>
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => setShowGitBrowser(true)}
-                                        className={btnSuccess}
-                                    >
-                                        <CodeBracketIcon className="h-5 w-5" />
-                                        Browse Files
-                                    </button>
+                                
+                                {/* Git File Selector */}
+                                <GitFileSelector
+                                    repositoryPath={gitRepositoryPath!}
+                                    onFileSelect={handleGitFileSelect}
+                                    selectedFile={selectedGitFile}
+                                    selectedBranch={selectedGitBranch}
+                                />
+                                
+                                {/* Analyze Button */}
+                                {selectedGitFile && (
+                                    <div className="flex justify-center">
+                                        <button
+                                            onClick={handleGitAnalyze}
+                                            disabled={loading}
+                                            className={btnSuccess}
+                                        >
+                                            {loading ? 'Analyzing...' : 'Analyze Selected File'}
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* Disconnect Button */}
+                                <div className="flex justify-center">
                                     <button
                                         onClick={() => {
                                             setGitConnected(false);
                                             setGitRepositoryPath(null);
+                                            setSelectedGitFile(null);
+                                            setSelectedGitBranch('');
                                         }}
                                         className={btnGray}
                                     >
@@ -378,12 +504,22 @@ const EnhancedFileUploader = () => {
                                             let provider = result?.provider || result?.llm_provider || (result?.analysis_json?.provider) || selectedProvider || '';
                                             let model = result?.model || result?.llm_model || (result?.analysis_json?.model) || selectedModel || '';
                                             // @ts-ignore
-                                            await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '', provider, model);
-                                            setSaved(true);
-                                            refreshAnalyses();
-                                            alert('Analysis saved to database!');
+                                            const saveResult = await window.electron.invoke('save-analysis', fileName, 'complete', result, filePath || '', provider, model);
+                                            console.log('Save analysis result:', saveResult);
+                                            
+                                            if (saveResult && saveResult.ok) {
+                                                setSaved(true);
+                                                // Add a small delay to ensure database operation is fully committed
+                                                await new Promise(resolve => setTimeout(resolve, 100));
+                                                await refreshAnalyses();
+                                                alert(`Analysis saved to database! (ID: ${saveResult.analysis_id})`);
+                                            } else {
+                                                throw new Error(saveResult?.error || 'Save failed');
+                                            }
                                         } catch (e) {
-                                            alert('Failed to save analysis');
+                                            console.error('Save analysis error:', e);
+                                            const errorMessage = e instanceof Error ? e.message : String(e);
+                                            alert(`Failed to save analysis: ${errorMessage}`);
                                         }
                                     }
                                 }}
@@ -427,7 +563,7 @@ const EnhancedFileUploader = () => {
                                                 alert(`Cannot submit: ${riskLevel} risk issues detected. Please resolve all high and medium risk issues before submission.`);
                                             }}
                                         >
-                                            ⚠️ Cannot Submit ({checkRiskLevel(result)} risk)
+                                            Cannot Submit ({checkRiskLevel(result)} risk)
                                         </button>
                                     )}
                                 </>
@@ -467,8 +603,8 @@ const EnhancedFileUploader = () => {
                                         className={btnDanger + " absolute top-4 right-4 w-10 h-10 !p-0 flex items-center justify-center text-2xl"}
                                         onClick={() => setShowRaw(false)}
                                         aria-label="Close"
-                                    >×</button>
-                                    <h2 className="text-lg font-bold mb-4">Raw LLM Output</h2>
+                                    >Close</button>
+                                    <h2 className="text-base font-bold mb-3">Raw LLM Output</h2>
                                     <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto max-h-96">{JSON.stringify(result, null, 2)}</pre>
                                     <button
                                         className={btnPrimary + " mt-4"}
@@ -490,16 +626,6 @@ const EnhancedFileUploader = () => {
                 onClose={() => setShowGitConnection(false)}
                 onConnect={handleGitConnect}
             />
-
-            {gitConnected && gitRepositoryPath && showGitBrowser && (
-                <GitFileBrowser
-                    repositoryPath={gitRepositoryPath}
-                    onAnalyzeFile={handleGitAnalyzeFile}
-                    onClose={() => setShowGitBrowser(false)}
-                    selectedProvider={selectedProvider}
-                    selectedModel={selectedModel}
-                />
-            )}
         </>
     );
 };

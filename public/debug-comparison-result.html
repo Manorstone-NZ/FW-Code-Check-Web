@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Comparison Result</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #007bff;
+        }
+        
+        .test-button {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .result {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Comparison Result Issue</h1>
+        
+        <div class="test-section">
+            <h3>Current Issue</h3>
+            <p>Users are seeing "No LLM Result" in comparison reports even though:</p>
+            <ul>
+                <li>✅ Python backend outputs <code>{'llm_comparison': result}</code></li>
+                <li>✅ Electron handler is fixed to return result directly</li>
+                <li>✅ Frontend looks for <code>result.llm_comparison</code></li>
+            </ul>
+            <p>This test will show us exactly what's being returned.</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 Debug Test</h3>
+            <button class="test-button" onclick="runComparisonDebug()">🔍 Debug Comparison Result</button>
+            <div id="debug-result" class="result">Ready to run debug test...</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Analysis</h3>
+            <div id="analysis-result" class="result">Will show analysis after debug test runs...</div>
+        </div>
+    </div>
+
+    <script>
+        async function runComparisonDebug() {
+            const debugDiv = document.getElementById('debug-result');
+            const analysisDiv = document.getElementById('analysis-result');
+            
+            debugDiv.innerHTML = '<div class="loading"></div>Running comparison debug test...';
+            debugDiv.className = 'result';
+            
+            try {
+                // Check if electronAPI is available
+                if (!window.electronAPI || !window.electronAPI.llmCompareAnalysisBaseline) {
+                    debugDiv.innerHTML = '❌ ERROR: electronAPI.llmCompareAnalysisBaseline not available\n\nThis suggests the preload script is not working correctly.';
+                    debugDiv.className = 'result error';
+                    return;
+                }
+                
+                debugDiv.innerHTML = '✅ electronAPI.llmCompareAnalysisBaseline is available\n\n🔄 Running comparison test...';
+                
+                // Test with simple string content (like files)
+                const testAnalysis = 'PLC Analysis: Network 1 - Start logic, Network 2 - Safety interlocks';
+                const testBaseline = 'PLC Baseline: Network 1 - Start logic, Network 2 - Different safety interlocks';
+                
+                console.log('🔍 Starting comparison debug test...');
+                console.log('Analysis:', testAnalysis);
+                console.log('Baseline:', testBaseline);
+                
+                const result = await window.electronAPI.llmCompareAnalysisBaseline(
+                    testAnalysis,
+                    testBaseline,
+                    'openai'
+                );
+                
+                console.log('🔍 Raw result from electronAPI:', result);
+                
+                // Display the raw result
+                debugDiv.innerHTML = `✅ Comparison completed successfully!
+
+📋 RAW RESULT FROM ELECTRON:
+${JSON.stringify(result, null, 2)}
+
+📊 RESULT ANALYSIS:
+- Type: ${typeof result}
+- Is object: ${typeof result === 'object' && result !== null}
+- Has llm_comparison: ${!!result?.llm_comparison}
+- Has success: ${!!result?.success}  
+- Has error: ${!!result?.error}
+- Keys: [${Object.keys(result || {}).join(', ')}]`;
+                
+                if (result?.llm_comparison) {
+                    debugDiv.innerHTML += `\n\n✅ LLM_COMPARISON FOUND:
+Length: ${result.llm_comparison.length} characters
+Preview: ${result.llm_comparison.substring(0, 200)}...`;
+                    debugDiv.className = 'result success';
+                } else {
+                    debugDiv.innerHTML += `\n\n❌ NO LLM_COMPARISON FOUND!
+This explains why users see "No LLM Result"`;
+                    debugDiv.className = 'result error';
+                }
+                
+                // Analysis
+                analysisDiv.innerHTML = `🔍 DEBUGGING ANALYSIS:
+
+1. EXPECTED FLOW:
+   Python script → {'llm_comparison': 'result'} → Electron handler → Frontend
+
+2. ACTUAL RESULT:
+   ${result?.llm_comparison ? '✅ SUCCESS: llm_comparison found' : '❌ FAILURE: llm_comparison missing'}
+
+3. POSSIBLE ISSUES:
+   ${!result?.llm_comparison ? `
+   - Electron handler not returning Python result correctly
+   - Python script not outputting expected format
+   - createPythonHandler not parsing JSON correctly
+   - Error in Python script execution` : '✅ No issues found - comparison working correctly'}
+
+4. NEXT STEPS:
+   ${!result?.llm_comparison ? `
+   - Check Electron console for Python script output
+   - Verify Python script execution
+   - Check createPythonHandler implementation` : '✅ Issue resolved - comparison should work in frontend'}`;
+                
+                analysisDiv.className = result?.llm_comparison ? 'result success' : 'result error';
+                
+            } catch (error) {
+                console.error('🔍 Debug test error:', error);
+                debugDiv.innerHTML = `❌ ERROR during comparison test:
+${error.message}
+
+Stack trace:
+${error.stack}`;
+                debugDiv.className = 'result error';
+                
+                analysisDiv.innerHTML = `❌ CRITICAL ERROR:
+The comparison function threw an exception.
+This suggests a fundamental issue with the Electron handler or Python script.
+
+Error: ${error.message}`;
+                analysisDiv.className = 'result error';
+            }
+        }
+        
+        // Auto-run the test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const debugDiv = document.getElementById('debug-result');
+                debugDiv.innerHTML = '🚀 Ready to debug! Click the button above to start.';
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

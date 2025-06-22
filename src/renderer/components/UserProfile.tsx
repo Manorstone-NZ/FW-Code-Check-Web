@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserCircleIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
 const UserProfile: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -48,7 +47,7 @@ const UserProfile: React.FC = () => {
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <UserCircleIcon className="h-8 w-8 text-gray-600" />
+        <div className="h-8 w-8 text-gray-600 flex items-center justify-center text-sm font-bold border border-gray-300 rounded-full">{user.username.charAt(0).toUpperCase()}</div>
         <div className="hidden md:block text-left">
           <p className="text-sm font-medium text-gray-900">{user.username}</p>
           <p className="text-xs text-gray-500">{user.email}</p>
@@ -62,7 +61,7 @@ const UserProfile: React.FC = () => {
             {/* User Info */}
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center space-x-3">
-                <UserCircleIcon className="h-10 w-10 text-gray-400" />
+                <div className="h-10 w-10 text-gray-400 flex items-center justify-center text-sm font-bold border border-gray-300 rounded-full">{user.username.charAt(0).toUpperCase()}</div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">{user.username}</p>
                   <p className="text-xs text-gray-500">{user.email}</p>
@@ -84,7 +83,6 @@ const UserProfile: React.FC = () => {
                   // TODO: Implement profile settings
                 }}
               >
-                <Cog6ToothIcon className="h-4 w-4 mr-3" />
                 Account Settings
               </button>
               
@@ -92,7 +90,6 @@ const UserProfile: React.FC = () => {
                 onClick={handleLogout}
                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left border-t border-gray-100"
               >
-                <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
                 Sign Out
               </button>
             </div>

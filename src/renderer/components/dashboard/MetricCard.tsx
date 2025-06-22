@@ -1,12 +1,5 @@
 import * as React from 'react';
 import { DashboardMetric } from '../../../types/core';
-import { 
-  ArrowUpIcon, 
-  ArrowDownIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon
-} from '@heroicons/react/24/outline';
 
 interface MetricCardProps {
   metric: DashboardMetric;
@@ -25,19 +18,19 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, onClick }) => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'healthy': return <CheckCircleIcon className="h-5 w-5" />;
-      case 'warning': return <ExclamationTriangleIcon className="h-5 w-5" />;
-      case 'critical': return <XCircleIcon className="h-5 w-5" />;
+      case 'healthy': return <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded">Good</span>;
+      case 'warning': return <span className="text-yellow-600 font-medium text-sm px-2 py-1 bg-yellow-50 rounded">Warning</span>;
+      case 'critical': return <span className="text-red-600 font-medium text-sm px-2 py-1 bg-red-50 rounded">Critical</span>;
       default: return null;
     }
   };
 
   const getChangeIcon = (changeType: string) => {
     if (changeType === 'increase') {
-      return <ArrowUpIcon className="h-4 w-4 text-green-500" />;
+      return <span className="text-green-500 font-medium text-sm px-2 py-1 bg-green-50 rounded">Up</span>;
     }
     if (changeType === 'decrease') {
-      return <ArrowDownIcon className="h-4 w-4 text-red-500" />;
+      return <span className="text-red-500 font-medium text-sm px-2 py-1 bg-red-50 rounded">Down</span>;
     }
     return null;
   };

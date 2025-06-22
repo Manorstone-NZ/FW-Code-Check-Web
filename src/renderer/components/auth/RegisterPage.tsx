@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { ExclamationTriangleIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 interface RegisterPageProps {
   onShowLogin?: () => void;
@@ -85,7 +84,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-green-100">
-              <CheckCircleIcon className="h-8 w-8 text-green-600" />
+              <span className="h-8 w-8 text-green-600 flex items-center justify-center text-xs font-bold">Success</span>
             </div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
               Registration Successful!
@@ -130,22 +129,21 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
         {/* Registration Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {/* Error Display */}
-          {(registerError || error) && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Registration Failed
-                  </h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    {registerError || error}
+          {(registerError || error) && (              <div className="rounded-md bg-red-50 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <span className="h-5 w-5 text-red-400 flex items-center justify-center font-bold">!</span>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Registration Failed
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      {registerError || error}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           <div className="space-y-4">
@@ -231,11 +229,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400" />
-                  )}
+                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                    {showPassword ? 'HIDE' : 'SHOW'}
+                  </span>
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
@@ -265,11 +261,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400" />
-                  )}
+                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                    {showConfirmPassword ? 'HIDE' : 'SHOW'}
+                  </span>
                 </button>
               </div>
             </div>

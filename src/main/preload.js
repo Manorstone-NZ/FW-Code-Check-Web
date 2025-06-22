@@ -16,9 +16,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetUserPassword: (userId, newPassword) => ipcRenderer.invoke('reset-user-password', userId, newPassword),
   
   // === Git Integration Methods ===
-  gitCloneRepository: (url, localPath, branch) => ipcRenderer.invoke('git-clone-repository', url, localPath, branch),
+  gitCloneRepository: (url, localPath, branch, username, password) => ipcRenderer.invoke('git-clone-repository', url, localPath, branch, username, password),
   gitConnectRepository: (repoPath) => ipcRenderer.invoke('git-connect-repository', repoPath),
   gitGetBranches: () => ipcRenderer.invoke('git-get-branches'),
+  gitGetRemoteBranches: (url) => ipcRenderer.invoke('git-get-remote-branches', url),
   gitCheckoutBranch: (branchName) => ipcRenderer.invoke('git-checkout-branch', branchName),
   gitGetFiles: (branch) => ipcRenderer.invoke('git-get-files', branch),
   gitGetStatus: () => ipcRenderer.invoke('git-get-status'),
@@ -26,6 +27,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitCommitFile: (filePath, commitMessage, branch) => ipcRenderer.invoke('git-commit-file', filePath, commitMessage, branch),
   gitPushToRemote: (branch, remote) => ipcRenderer.invoke('git-push-to-remote', branch, remote),
   gitCopyFileFromBranch: (filePath, sourceBranch, targetPath) => ipcRenderer.invoke('git-copy-file-from-branch', filePath, sourceBranch, targetPath),
+  
+  // === Dialog Methods ===
+  showDirectoryPicker: () => ipcRenderer.invoke('show-directory-picker'),
+  showSaveDirectoryPicker: () => ipcRenderer.invoke('show-save-directory-picker'),
+  getHomeDirectory: () => ipcRenderer.invoke('get-home-directory'),
   
   // === Existing Methods ===
   analyzeFile: (filePath, provider, model) => ipcRenderer.invoke('analyze-file', filePath, provider, model),
@@ -35,11 +41,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getOTThreatIntelLastSync: () => ipcRenderer.invoke('get-ot-threat-intel-last-sync'),
   syncOTThreatIntel: (provider) => ipcRenderer.invoke('sync-ot-threat-intel', provider),
   updateOTThreatIntelEntry: (entry) => ipcRenderer.invoke('update-ot-threat-intel-entry', entry),
+  clearOTThreatIntel: () => ipcRenderer.invoke('clear-ot-threat-intel'),
+  bulkOTThreatIntel: () => ipcRenderer.invoke('bulk-ot-threat-intel'),
   listAnalyses: () => ipcRenderer.invoke('list-analyses'),
   listBaselines: () => ipcRenderer.invoke('list-baselines'),
   debugLogHook: (log) => ipcRenderer.invoke('debug-log-hook', log),
   getSavedComparisons: () => ipcRenderer.invoke('get-saved-comparisons'),
-  saveAnalysis: (fileName, status, analysisJson, filePath, provider, model) => ipcRenderer.invoke('save-analysis', fileName, status, analysisJson, filePath, provider, model),
   getAnalysis: (analysisId) => ipcRenderer.invoke('get-analysis', analysisId),
   getBaseline: (baselineId) => ipcRenderer.invoke('get-baseline', baselineId),
   saveBaseline: (fileName, originalName, filePath, analysisJson, provider, model) => ipcRenderer.invoke('save-baseline', fileName, originalName, filePath, analysisJson, provider, model),
@@ -48,8 +55,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteComparisonResult: (comparisonId) => ipcRenderer.invoke('delete-comparison-result', comparisonId),
   getLLMLogs: () => ipcRenderer.invoke('get-llm-logs'),
   deleteBaseline: (baselineId) => ipcRenderer.invoke('delete-baseline', baselineId),
+  
+  // === Missing Handler Exposures ===
+  getAnalyses: () => ipcRenderer.invoke('get-analyses'),
+  getLlmStatus: () => ipcRenderer.invoke('get-llm-status'),
+  login: (credentials) => ipcRenderer.invoke('login', credentials),
+  updateUser: (userId, userData) => ipcRenderer.invoke('update-user', userId, userData),
+  resetDb: () => ipcRenderer.invoke('reset-db'),
+  
+  // === Additional Missing Handlers ===
   deleteAnalysis: (analysisId) => ipcRenderer.invoke('delete-analysis', analysisId),
-  installOllamaModel: (model) => ipcRenderer.invoke('install-ollama-model', model),
+  saveAnalysis: (fileName, status, analysisJson, filePath, provider, model) => ipcRenderer.invoke('save-analysis', fileName, status, analysisJson, filePath, provider, model),
+  
+  // === Missing System Handlers ===
+  showSaveDirectoryPicker: () => ipcRenderer.invoke('show-save-directory-picker'),
+  installOllamaModel: (modelName) => ipcRenderer.invoke('install-ollama-model', modelName),
+  
+  // === Test Suite Methods ===
+  openTestDashboard: () => ipcRenderer.invoke('open-test-dashboard'),
+  openDevTools: () => ipcRenderer.invoke('open-dev-tools'),
 });
 
 // Keep legacy support for existing code

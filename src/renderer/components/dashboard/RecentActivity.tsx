@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { ClockIcon } from '@heroicons/react/24/outline';
 import { Severity } from '../../../types/core';
 
 interface Activity {
@@ -56,7 +55,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-          <ClockIcon className="h-5 w-5 text-gray-400" />
+          <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">RECENT</span>
         </div>
 
         {activities.length === 0 ? (
@@ -111,7 +110,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
         {activities.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              View all activity →
+              View all activity
             </button>
           </div>
         )}

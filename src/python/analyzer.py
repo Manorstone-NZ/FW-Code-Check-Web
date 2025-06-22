@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import requests
 sys.path.append(os.path.dirname(__file__))
 
 # --- OPENAI KEY LOADING LOGIC ---
@@ -59,19 +60,53 @@ def check_openai_api():
     load_openai_key()
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
-        print(json.dumps({'ok': False, 'error': 'OPENAI_API_KEY not set in openai.key, .env, or environment.'}))
-        return
+        return {'ok': False, 'error': 'OPENAI_API_KEY not set in openai.key, .env, or environment.', 'provider': 'openai'}
     if not openai:
-        print(json.dumps({'ok': False, 'error': 'openai package not installed.'}))
-        return
+        return {'ok': False, 'error': 'openai package not installed.', 'provider': 'openai'}
     try:
         client = openai.OpenAI(api_key=api_key)
         models = client.models.list()
-        print(json.dumps({'ok': True, 'models': [m.id for m in models.data]}))
-        return
+        return {'ok': True, 'models': [m.id for m in models.data], 'provider': 'openai'}
     except Exception as e:
-        print(json.dumps({'ok': False, 'error': str(e)}))
-        return
+        return {'ok': False, 'error': str(e), 'provider': 'openai'}
+
+def check_ollama_api():
+    try:
+        import requests
+        response = requests.get('http://localhost:11434/api/tags', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            models = [model['name'] for model in data.get('models', [])]
+            return {'ok': True, 'models': models, 'provider': 'ollama'}
+        else:
+            return {'ok': False, 'error': f'Ollama API returned status {response.status_code}', 'provider': 'ollama'}
+    except Exception as e:
+        return {'ok': False, 'error': str(e), 'provider': 'ollama'}
+
+def check_llm_status():
+    """Check status of both OpenAI and Ollama LLM providers"""
+    results = {
+        'openai': check_openai_api(),
+        'ollama': check_ollama_api()
+    }
+    
+    # Determine overall status
+    online_providers = [provider for provider, status in results.items() if status['ok']]
+    
+    if online_providers:
+        return {
+            'ok': True,
+            'providers': results,
+            'online_providers': online_providers,
+            'primary_provider': online_providers[0]  # Use first available as primary
+        }
+    else:
+        return {
+            'ok': False,
+            'providers': results,
+            'online_providers': [],
+            'error': 'No LLM providers are available'
+        }
 
 def ollama_llm_query(prompt, model='llama3'):
     response = requests.post(
@@ -110,6 +145,21 @@ def llm_analysis(prompt, model="gpt-4o", provider=None):
         return {'error': str(e)}
 
 def ensure_analysis_fields(analysis):
+    # Ensure the input is a dictionary
+    if not isinstance(analysis, dict):
+        print(f"Warning: ensure_analysis_fields received non-dict: {type(analysis)}")
+        # If it's a string, try to parse it as JSON
+        if isinstance(analysis, str):
+            try:
+                import json
+                analysis = json.loads(analysis)
+            except json.JSONDecodeError:
+                # If parsing fails, create a minimal structure
+                analysis = {'error': 'Failed to parse analysis data', 'raw_data': analysis}
+        else:
+            # For other types, create a minimal structure
+            analysis = {'error': 'Invalid analysis data type', 'raw_data': str(analysis)}
+    
     # Ensure all required fields and subfields are present
     analysis.setdefault('fileName', '')
     analysis.setdefault('report', {})
@@ -136,7 +186,15 @@ def ensure_analysis_fields(analysis):
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--check-openai':
         try:
-            check_openai_api()  # This already prints a single JSON object
+            result = check_openai_api()
+            print(json.dumps(result))
+        except Exception as e:
+            print(json.dumps({'ok': False, 'error': str(e)}))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--check-llm-status':
+        try:
+            result = check_llm_status()
+            print(json.dumps(result))
         except Exception as e:
             print(json.dumps({'ok': False, 'error': str(e)}))
         return
@@ -169,20 +227,98 @@ def main():
             log_error(f'Get analysis failed: {e}')
             print(json.dumps({'ok': False, 'error': str(e)}))
         return
+    if len(sys.argv) > 1 and sys.argv[1] == '--list-baselines':
+        from db import list_baselines
+        try:
+            result = list_baselines()
+            log_info('Listed baselines.')
+            print(json.dumps(result))
+        except Exception as e:
+            log_error(f'List baselines failed: {e}')
+            print(json.dumps({'ok': False, 'error': str(e)}))
+        return
+    if len(sys.argv) > 3 and sys.argv[1] == '--save-baseline':
+        from db import save_baseline
+        try:
+            name = sys.argv[2]
+            file_path = sys.argv[3]
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            result = save_baseline(name, content, 'CLI')
+            log_info(f'Saved baseline: {name}')
+            print(json.dumps(result))
+        except Exception as e:
+            log_error(f'Save baseline failed: {e}')
+            print(json.dumps({'ok': False, 'error': str(e)}))
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == '--delete-baseline':
+        from db import delete_baseline
+        try:
+            baseline_id = int(sys.argv[2])
+            result = delete_baseline(baseline_id)
+            log_info(f'Deleted baseline id={baseline_id}')
+            print(json.dumps(result))
+        except Exception as e:
+            log_error(f'Delete baseline failed: {e}')
+            print(json.dumps({'ok': False, 'error': str(e)}))
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == '--list-users':
+        from db import list_users
+        try:
+            result = list_users()
+            log_info('Listed users.')
+            print(json.dumps(result))
+        except Exception as e:
+            log_error(f'List users failed: {e}')
+            print(json.dumps({'ok': False, 'error': str(e)}))
+        return
     # LLM comparison mode
     if len(sys.argv) > 3 and sys.argv[1] == '--compare':
-        analysis_path = sys.argv[2]
-        baseline_path = sys.argv[3]
+        analysis_input = sys.argv[2]
+        baseline_input = sys.argv[3]
         provider = None
         if len(sys.argv) > 5 and sys.argv[4] == '--provider':
             provider = sys.argv[5]
+        
+        def get_content_from_input(input_data):
+            """Extract content from input - either file path or direct content"""
+            # Check if input looks like JSON (starts with { or [)
+            if input_data.strip().startswith(('{', '[')):
+                try:
+                    # Parse JSON and extract relevant content
+                    import json as json_parser
+                    data = json_parser.loads(input_data)
+                    if isinstance(data, dict):
+                        # Try to extract content from various possible fields
+                        content = (data.get('analysis_json', {}).get('content') or 
+                                 data.get('content') or 
+                                 data.get('file_content') or
+                                 str(data))
+                        return content
+                    else:
+                        return str(data)
+                except json_parser.JSONDecodeError:
+                    # If not valid JSON, treat as direct content
+                    return input_data
+            else:
+                # Try to read as file path first
+                try:
+                    import os
+                    if os.path.isfile(input_data):
+                        with open(input_data, 'r', encoding='utf-8') as f:
+                            return f.read()
+                    else:
+                        # If not a valid file path, treat as direct content
+                        return input_data
+                except Exception:
+                    # If file reading fails, treat as direct content
+                    return input_data
+        
         try:
-            with open(analysis_path, 'r', encoding='utf-8') as f:
-                analysis_content = f.read()
-            with open(baseline_path, 'r', encoding='utf-8') as f:
-                baseline_content = f.read()
+            analysis_content = get_content_from_input(analysis_input)
+            baseline_content = get_content_from_input(baseline_input)
         except Exception as e:
-            print(json.dumps({'error': f'Failed to read files: {str(e)}'}))
+            print(json.dumps({'error': f'Failed to process inputs: {str(e)}'}))
             return
         llm_prompt = f'''
 You are a senior control systems cybersecurity analyst. Compare the following two PLC code files in detail.

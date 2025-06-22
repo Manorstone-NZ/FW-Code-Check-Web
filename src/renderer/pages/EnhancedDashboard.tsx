@@ -1,16 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowTrendingUpIcon, 
-  ShieldCheckIcon, 
-  ExclamationTriangleIcon,
-  ChartBarIcon,
-  ClockIcon,
-  CpuChipIcon,
-  DocumentCheckIcon,
-  BugAntIcon
-} from '@heroicons/react/24/outline';
-import { useAnalyses, useBaselines } from '../utils/analysisApi';
+
+import { useAnalyses, useBaselines, useLLMStatus } from '../utils/analysisApi';
 import { DashboardMetric, Severity } from '../../types/core';
 import MetricCard from '../components/dashboard/MetricCard';
 import TrendChart from '../components/dashboard/TrendChart';
@@ -19,15 +10,33 @@ import RecentActivity from '../components/dashboard/RecentActivity';
 import SystemHealth from '../components/dashboard/SystemHealth';
 import QuickActions from '../components/dashboard/QuickActions';
 import AlertsPanel from '../components/dashboard/AlertsPanel';
+import { LLMProviderContext } from '../App';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { analyses, loading: loadingAnalyses, error: errorAnalyses } = useAnalyses();
   const { baselines, loading: loadingBaselines, error: errorBaselines } = useBaselines();
+  const { status: llmStatus, error: llmError, providers: llmProviders, onlineProviders } = useLLMStatus(60000); // 60s poll
+  const { provider: llmProvider } = React.useContext(LLMProviderContext);
   
   const [timeRange, setTimeRange] = React.useState<'24h' | '7d' | '30d'>('7d');
   const [refreshInterval, setRefreshInterval] = React.useState<number>(30000); // 30 seconds
   const [lastRefresh, setLastRefresh] = React.useState<Date>(new Date());
+  const [clearingDb, setClearingDb] = React.useState(false);
+
+  // Clear database function
+  const handleClearDb = async () => {
+    if (!window.confirm('Are you sure you want to clear all analysis data? This will delete all analyses, baselines, and comparisons, but preserve user accounts.')) return;
+    setClearingDb(true);
+    try {
+      // @ts-ignore
+      await window.electron.invoke('reset-db');
+      window.location.reload();
+    } catch (e) {
+      alert('Failed to clear data: ' + (e instanceof Error ? e.message : e));
+    }
+    setClearingDb(false);
+  };
 
   // Auto-refresh data
   React.useEffect(() => {
@@ -41,6 +50,11 @@ const Dashboard: React.FC = () => {
 
   // Calculate comprehensive metrics
   const metrics = React.useMemo((): DashboardMetric[] => {
+    // Safety check for undefined analyses
+    if (!analyses || !Array.isArray(analyses)) {
+      return [];
+    }
+
     const now = new Date();
     const timeRangeMs = {
       '24h': 24 * 60 * 60 * 1000,
@@ -140,7 +154,7 @@ const Dashboard: React.FC = () => {
       {
         id: 'baselines',
         name: 'Active Baselines',
-        value: baselines.length,
+        value: baselines?.length || 0,
         status: 'healthy',
         changeType: 'neutral',
         unit: '',
@@ -150,6 +164,11 @@ const Dashboard: React.FC = () => {
 
   // Get recent activity
   const recentActivity = React.useMemo(() => {
+    // Safety check for undefined analyses
+    if (!analyses || !Array.isArray(analyses)) {
+      return [];
+    }
+
     return [...analyses]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10)
@@ -186,6 +205,11 @@ const Dashboard: React.FC = () => {
 
   // Get severity distribution for security overview
   const severityDistribution = React.useMemo(() => {
+    // Safety check for undefined analyses
+    if (!analyses || !Array.isArray(analyses)) {
+      return { critical: 0, high: 0, medium: 0, low: 0 };
+    }
+
     const distribution = { critical: 0, high: 0, medium: 0, low: 0 };
     
     analyses.forEach(analysis => {
@@ -233,6 +257,45 @@ const Dashboard: React.FC = () => {
           >
             Refresh
           </button>
+        </div>
+      </div>
+
+      {/* LLM Status */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h3 className="text-lg font-semibold text-gray-900">LLM Status</h3>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${llmStatus === 'online' ? 'bg-green-100 text-green-800' : llmStatus === 'offline' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+              {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'}
+            </span>
+          </div>
+        </div>
+        {llmError && (
+          <div className="mt-2 text-sm text-red-600">
+            Error: {llmError}
+          </div>
+        )}
+        {llmProviders && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.entries(llmProviders).map(([provider, status]: [string, any]) => (
+              <div key={provider} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <span className="text-sm font-medium text-gray-900 capitalize">{provider === 'openai' ? 'OpenAI' : 'Ollama'}</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${status.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {status.ok ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            className={`w-full px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition ${clearingDb ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={clearingDb}
+            onClick={handleClearDb}
+          >
+            {clearingDb ? 'Clearing Data...' : 'Clear Analysis Data'}
+          </button>
+          <p className="text-xs text-gray-500 mt-2">This will delete all analyses, baselines, and comparisons, but preserve user accounts.</p>
         </div>
       </div>
 

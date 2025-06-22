@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OT Threat Intel Details Formatting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">OT Threat Intel Details Formatting Test</h1>
+        
+        <!-- Simulate the new formatting -->
+        <div class="bg-white border rounded-xl shadow p-6 text-sm">
+            <div class="mb-6">
+                <div class="flex items-center mb-3">
+                    <h3 class="text-base font-semibold text-gray-800">Details</h3>
+                </div>
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                    <div class="text-gray-700 leading-relaxed space-y-4">
+                        
+                        <!-- Sample Header -->
+                        <h3 class="text-base font-semibold text-gray-900 mt-5 mb-3 border-b border-gray-300 pb-1">
+                            Vulnerability Assessment
+                        </h3>
+                        
+                        <!-- Sample Paragraph -->
+                        <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                            This is a sample paragraph that demonstrates the improved formatting.
+                            It should now have proper line breaks and spacing.
+                            
+                            Multiple lines should be properly separated with good readability.
+                        </div>
+                        
+                        <!-- Sample List -->
+                        <ul class="list-disc list-inside space-y-2 ml-4">
+                            <li class="text-sm text-gray-700 leading-relaxed">First item with proper formatting</li>
+                            <li class="text-sm text-gray-700 leading-relaxed">Second item with good spacing</li>
+                            <li class="text-sm text-gray-700 leading-relaxed">Third item showing list formatting</li>
+                        </ul>
+                        
+                        <!-- Sample Key-Value -->
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <span class="font-semibold text-gray-900 min-w-fit">Severity:</span>
+                            <span class="text-gray-700">High</span>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <span class="font-semibold text-gray-900 min-w-fit">Impact:</span>
+                            <span class="text-gray-700">System disruption possible</span>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded">
+            <p class="text-green-800 font-semibold">✅ This shows how the Details section should look</p>
+            <p class="text-green-600 text-sm mt-1">With proper headers, spacing, lists, and formatting</p>
+        </div>
+        
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+            <p class="text-blue-800 font-semibold">📝 Instructions</p>
+            <p class="text-blue-600 text-sm mt-1">
+                1. Navigate to OT Threat Intel Dashboard<br>
+                2. Select any threat entry<br>
+                3. Check if the Details section looks like the example above<br>
+                4. If not, try refreshing the page or restarting the app
+            </p>
+        </div>
+    </div>
+</body>
+</html>

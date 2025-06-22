@@ -16,9 +16,9 @@ const AnalysisPage = () => {
   const params = new URLSearchParams(location.search);
   const showVuln = params.get('vuln') === '1';
   const showAlarms = params.get('alarms') === '1';
-  let filteredAnalyses = analyses;
+  let filteredAnalyses = analyses || [];
   if (showVuln) {
-    filteredAnalyses = analyses.filter(a => {
+    filteredAnalyses = (analyses || []).filter(a => {
       // Accept vulnerabilities if array exists and has any non-falsy value (string, object, number, etc.)
       const vulns = a.analysis_json?.vulnerabilities;
       return Array.isArray(vulns) && vulns.some((v: any) => {
@@ -41,8 +41,8 @@ const AnalysisPage = () => {
 
   React.useEffect(() => {
     debugLog('navigate-analysis', {
-      analysesCount: analyses.length,
-      filteredAnalysesCount: filteredAnalyses.length,
+      analysesCount: analyses?.length || 0,
+      filteredAnalysesCount: filteredAnalyses?.length || 0,
       loading,
       error
     });
@@ -105,10 +105,21 @@ const AnalysisPage = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this analysis?')) return;
     debugLog('analysis-list-delete', { analysisId: id });
-    // @ts-ignore
-    await window.electron.invoke('delete-analysis', id);
-    refresh();
-    setLastUpdated(new Date());
+    try {
+      // @ts-ignore
+      const result = await window.electron.invoke('delete-analysis', id);
+      if (result && result.ok) {
+        debugLog('analysis-delete-success', { analysisId: id, result });
+        refresh();
+        setLastUpdated(new Date());
+      } else {
+        console.error('Delete analysis failed:', result);
+        alert('Failed to delete analysis. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting analysis:', error);
+      alert('Error deleting analysis: ' + (error as Error).message);
+    }
   };
 
   const handleRefresh = () => {
@@ -188,7 +199,7 @@ const AnalysisPage = () => {
         {loading && <p>Loading...</p>}
         {error && <p className="text-red-600">{error}</p>}
         {(!loading && filteredAnalyses.length === 0) && (
-          <div className="p-8 text-center text-gray-500 text-lg">No analyses found in the database.</div>
+          <div className="p-6 text-center text-gray-500 text-base">No analyses found in the database.</div>
         )}
         
         {filteredAnalyses.length > 0 && (

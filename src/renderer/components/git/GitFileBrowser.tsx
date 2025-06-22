@@ -1,16 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  DocumentIcon, 
-  FolderIcon, 
-  CodeBracketIcon,
-  PlayIcon,
-  EyeIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ArrowPathIcon,
-  CommandLineIcon
-} from '@heroicons/react/24/outline';
 
 // Local type definitions for Git integration
 interface GitFile {
@@ -154,12 +142,15 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
     const extension = fileName.toLowerCase().split('.').pop();
     switch (extension) {
       case 'l5x':
+      case 'l5k':
+      case 'acd':
+        return <span className="text-blue-600 text-xs font-bold">.L5X</span>;
       case 'txt':
-        return <DocumentIcon className="h-5 w-5 text-blue-500" />;
+        return <span className="text-gray-600 text-xs font-bold">.TXT</span>;
       case 'json':
-        return <CodeBracketIcon className="h-5 w-5 text-green-500" />;
+        return <span className="text-green-600 text-xs font-bold">.JSON</span>;
       default:
-        return <DocumentIcon className="h-5 w-5 text-gray-500" />;
+        return <span className="text-gray-400 text-xs font-bold">FILE</span>;
     }
   };
 
@@ -206,19 +197,19 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <XCircleIcon className="h-6 w-6" />
+            Close
           </button>
         </div>
 
         {/* Branch Selector */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-4">
-            <CommandLineIcon className="h-5 w-5 text-gray-600" />
+            <span className="text-gray-600 mr-2 text-sm font-bold">BRANCH:</span>
             <select
               value={currentBranch}
               onChange={(e) => handleBranchChange(e.target.value)}
               disabled={loading}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             >
               {branches.map((branch) => (
                 <option key={branch.name} value={branch.name}>
@@ -229,10 +220,9 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
             <button
               onClick={() => loadFiles(currentBranch)}
               disabled={loading}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md transition-colors flex items-center"
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md transition-colors flex items-center text-sm"
             >
-              <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              {loading ? 'Loading...' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -241,7 +231,7 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
         {error && (
           <div className="p-4 bg-red-50 border-b border-red-200">
             <div className="flex">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-2" />
+              <span className="text-red-400 mr-2 mt-0.5 font-bold text-sm">ERROR:</span>
               <span className="text-sm text-red-700">{error}</span>
             </div>
           </div>
@@ -251,8 +241,7 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full">
-              <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-500" />
-              <span className="ml-2 text-gray-600">Loading files...</span>
+              <span className="text-blue-500 font-bold">LOADING FILES...</span>
             </div>
           ) : (
             <div className="h-full overflow-y-auto">
@@ -300,28 +289,29 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
                           {formatDate(file.last_modified)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-3">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleAnalyzeFile(file);
                               }}
                               disabled={analysisStatus === 'analyzing'}
-                              className="text-blue-600 hover:text-blue-800 disabled:text-blue-400 transition-colors"
+                              className="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-medium rounded-md transition-colors"
+                              title="Analyze this file"
                             >
                               {analysisStatus === 'analyzing' ? (
-                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                'Analyzing...'
                               ) : (
-                                <PlayIcon className="h-5 w-5" />
+                                'Analyze'
                               )}
                             </button>
                             
                             {analysisStatus === 'success' && (
-                              <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                              <span className="text-green-500 text-xs font-bold" title="Analysis completed successfully">SUCCESS</span>
                             )}
                             
                             {analysisStatus === 'error' && (
-                              <XCircleIcon className="h-5 w-5 text-red-500" />
+                              <span className="text-red-500 text-xs font-bold" title="Analysis failed">FAILED</span>
                             )}
                             
                             {analysisResult && (
@@ -331,9 +321,10 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
                                   // TODO: Show analysis details
                                   console.log('Show analysis details:', analysisResult);
                                 }}
-                                className="text-gray-600 hover:text-gray-800 transition-colors"
+                                className="inline-flex items-center px-2 py-1 text-gray-600 hover:text-gray-800 transition-colors text-xs"
+                                title="View analysis results"
                               >
-                                <EyeIcon className="h-5 w-5" />
+                                View
                               </button>
                             )}
                           </div>
@@ -346,7 +337,7 @@ const GitFileBrowser: React.FC<GitFileBrowserProps> = ({
               
               {files.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center h-64">
-                  <FolderIcon className="h-12 w-12 text-gray-400 mb-4" />
+                  <span className="text-gray-400 mb-4 text-lg font-bold">NO FILES</span>
                   <p className="text-gray-500">No PLC files found in this branch</p>
                   <p className="text-sm text-gray-400 mt-1">
                     Looking for .l5x, .txt, and .json files

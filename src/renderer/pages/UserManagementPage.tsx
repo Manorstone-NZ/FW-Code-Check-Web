@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  UserPlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  EyeIcon,
-  EyeSlashIcon
-} from '@heroicons/react/24/outline';
 import logger from '../../utils/logger';
 
 interface UserManagement {
@@ -246,7 +236,7 @@ const UserManagementPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-center mb-4">
-            <ExclamationTriangleIcon className="h-12 w-12 text-red-500" />
+            <span className="h-12 w-12 text-red-500 flex items-center justify-center text-lg font-bold">ACCESS DENIED</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 text-center mb-2">Access Denied</h2>
           <p className="text-gray-600 text-center">
@@ -273,7 +263,7 @@ const UserManagementPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-center mb-4">
-            <XCircleIcon className="h-12 w-12 text-red-500" />
+            <span className="h-12 w-12 text-red-500 flex items-center justify-center text-lg font-bold">ERROR</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 text-center mb-2">Error</h2>
           <p className="text-gray-600 text-center mb-4">{error}</p>
@@ -301,7 +291,6 @@ const UserManagementPage: React.FC = () => {
             onClick={() => setShowCreateForm(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center space-x-2 transition-colors"
           >
-            <UserPlusIcon className="h-5 w-5" />
             <span>Create User</span>
           </button>
         </div>
@@ -377,11 +366,9 @@ const UserManagementPage: React.FC = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     >
-                      {showPassword ? (
-                        <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5 text-gray-400" />
-                      )}
+                      <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                        {showPassword ? 'HIDE' : 'SHOW'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -472,12 +459,7 @@ const UserManagementPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
-                        {user.is_active ? (
-                          <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <XCircleIcon className="h-5 w-5 text-red-500" />
-                        )}
-                        <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className={`text-sm px-2 py-1 rounded font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                         {user.locked_until && new Date(user.locked_until) > new Date() && (
@@ -496,25 +478,25 @@ const UserManagementPage: React.FC = () => {
                         <button
                           onClick={() => handleToggleUserStatus(user.id, user.username, user.is_active || false)}
                           disabled={user.id === currentUser?.id || actionLoading[`toggle_${user.id}`]}
-                          className={`px-3 py-1 rounded text-xs font-medium ${
+                          className={`px-2 py-1 text-xs font-semibold rounded shadow focus:outline-none focus:ring-2 focus:ring-opacity-50 transition disabled:opacity-50 ${
                             user.is_active 
-                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
-                          } disabled:opacity-50`}
+                              ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-400' 
+                              : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-400'
+                          }`}
                         >
                           {actionLoading[`toggle_${user.id}`] ? '...' : (user.is_active ? 'Deactivate' : 'Activate')}
                         </button>
                         <button
                           onClick={() => handleResetPassword(user.id, user.username)}
                           disabled={actionLoading[`reset_${user.id}`]}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded text-xs font-medium disabled:opacity-50"
+                          className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition disabled:opacity-50"
                         >
                           {actionLoading[`reset_${user.id}`] ? '...' : 'Reset Password'}
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id, user.username)}
                           disabled={user.id === currentUser?.id || actionLoading[`delete_${user.id}`]}
-                          className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-medium disabled:opacity-50"
+                          className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition disabled:opacity-50"
                         >
                           {actionLoading[`delete_${user.id}`] ? '...' : 'Delete'}
                         </button>
@@ -533,19 +515,19 @@ const UserManagementPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-blue-800">Total Users</h3>
-              <p className="text-2xl font-bold text-blue-900">{users.length}</p>
+              <p className="text-2xl font-bold text-blue-900">{users?.length || 0}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-green-800">Active Users</h3>
-              <p className="text-2xl font-bold text-green-900">{users.filter(u => u.is_active).length}</p>
+              <p className="text-2xl font-bold text-green-900">{users?.filter(u => u.is_active).length || 0}</p>
             </div>
             <div className="bg-red-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-red-800">Administrators</h3>
-              <p className="text-2xl font-bold text-red-900">{users.filter(u => u.role === 'admin').length}</p>
+              <p className="text-2xl font-bold text-red-900">{users?.filter(u => u.role === 'admin').length || 0}</p>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-yellow-800">Analysts</h3>
-              <p className="text-2xl font-bold text-yellow-900">{users.filter(u => u.role === 'analyst').length}</p>
+              <p className="text-2xl font-bold text-yellow-900">{users?.filter(u => u.role === 'analyst').length || 0}</p>
             </div>
           </div>
         </div>

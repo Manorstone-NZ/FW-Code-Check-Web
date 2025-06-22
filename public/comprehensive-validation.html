@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Handler Validation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            height: 400px;
+            overflow-y: auto;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Comprehensive Handler Validation</h1>
+            <p>Validating all button handlers in the First Watch PLC Code Checker</p>
+        </div>
+        
+        <div class="content">
+            <div class="instructions">
+                <h3>📋 Instructions</h3>
+                <ul>
+                    <li>This test validates all IPC handlers used by buttons and UI components</li>
+                    <li>It checks authentication, data management, Git integration, OT threat intel, and more</li>
+                    <li>The test will automatically run when the page loads</li>
+                    <li>Check the console output below for detailed results</li>
+                    <li>Green ✅ indicates working handlers, red ❌ indicates issues</li>
+                </ul>
+            </div>
+            
+            <div class="status" id="status">
+                <strong>Status:</strong> <span id="status-text">Initializing validation...</span>
+            </div>
+            
+            <div>
+                <button class="button" id="run-validation">🔍 Run Validation</button>
+                <button class="button" id="clear-console" style="background: #f44336;">🗑️ Clear Console</button>
+                <button class="button" id="copy-results" style="background: #ff9800;">📋 Copy Results</button>
+            </div>
+            
+            <h3>Console Output:</h3>
+            <div class="console-output" id="console-output">
+                <div style="color: #6272a4;">Console ready... validation will start automatically.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Console capture and display
+        const consoleOutput = document.getElementById('console-output');
+        const statusText = document.getElementById('status-text');
+        
+        // Override console.log to capture output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            const message = args.join(' ');
+            const div = document.createElement('div');
+            
+            // Color coding based on message content
+            if (message.includes('✅')) {
+                div.style.color = '#50fa7b';
+            } else if (message.includes('❌')) {
+                div.style.color = '#ff5555';
+            } else if (message.includes('🔍') || message.includes('📊') || message.includes('👥')) {
+                div.style.color = '#8be9fd';
+            } else if (message.includes('=')) {
+                div.style.color = '#f1fa8c';
+                div.style.fontWeight = 'bold';
+            } else {
+                div.style.color = '#f8f8f2';
+            }
+            
+            div.textContent = message;
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+        
+        // Button event handlers
+        document.getElementById('run-validation').addEventListener('click', async () => {
+            const button = document.getElementById('run-validation');
+            button.disabled = true;
+            button.textContent = '⏳ Running...';
+            statusText.textContent = 'Running comprehensive validation...';
+            
+            try {
+                const validator = new ComprehensiveHandlerValidator();
+                const success = await validator.runFullValidation();
+                
+                if (success) {
+                    statusText.textContent = '✅ All handlers validated successfully!';
+                    statusText.parentElement.style.background = '#d4edda';
+                    statusText.parentElement.style.borderColor = '#28a745';
+                } else {
+                    statusText.textContent = '❌ Some handlers failed validation';
+                    statusText.parentElement.style.background = '#f8d7da';
+                    statusText.parentElement.style.borderColor = '#dc3545';
+                }
+            } catch (error) {
+                console.log('❌ Validation failed with error:', error.message);
+                statusText.textContent = '❌ Validation failed with errors';
+                statusText.parentElement.style.background = '#f8d7da';
+                statusText.parentElement.style.borderColor = '#dc3545';
+            }
+            
+            button.disabled = false;
+            button.textContent = '🔍 Run Validation';
+        });
+        
+        document.getElementById('clear-console').addEventListener('click', () => {
+            consoleOutput.innerHTML = '<div style="color: #6272a4;">Console cleared...</div>';
+        });
+        
+        document.getElementById('copy-results').addEventListener('click', () => {
+            const text = consoleOutput.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const button = document.getElementById('copy-results');
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        });
+    </script>
+    
+    <script src="comprehensive-handler-validation.js"></script>
+    <script src="backend-api-test.js"></script>
+    <script src="ui-component-test.js"></script>
+    <script src="workflow-test.js"></script>
+    <script src="performance-test.js"></script>
+    <script src="security-test.js"></script>
+    <script src="integration-test.js"></script>
+    <script src="master-test-suite.js"></script>
+</body>
+</html>

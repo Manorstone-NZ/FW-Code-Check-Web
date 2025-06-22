@@ -125,6 +125,15 @@ def init_db():
             c.execute('ALTER TABLE comparison_history ADD COLUMN baselineFileName TEXT')
         except Exception:
             pass  # Already exists
+        # Migration: add provider and model columns if missing
+        try:
+            c.execute('ALTER TABLE comparison_history ADD COLUMN provider TEXT')
+        except Exception:
+            pass  # Already exists
+        try:
+            c.execute('ALTER TABLE comparison_history ADD COLUMN model TEXT')
+        except Exception:
+            pass  # Already exists
         c.execute('''
             CREATE TABLE IF NOT EXISTS ot_threat_intel (
                 id TEXT PRIMARY KEY,
@@ -266,6 +275,32 @@ def authenticate_user(username: str, password: str) -> dict:
                 'email': email,
                 'role': role
             }
+        }
+
+def get_user_by_username(username: str) -> dict:
+    """Get user information by username"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        c.execute('''
+            SELECT id, username, email, role, is_active, created_at, last_login
+            FROM users WHERE username = ?
+        ''', (username,))
+        
+        user = c.fetchone()
+        if not user:
+            return None
+        
+        user_id, user_username, email, role, is_active, created_at, last_login = user
+        
+        return {
+            'id': user_id,
+            'username': user_username,
+            'email': email,
+            'role': role,
+            'is_active': bool(is_active),
+            'created_at': created_at,
+            'last_login': last_login
         }
 
 def create_session(user_id: int) -> dict:
@@ -484,19 +519,53 @@ def get_analysis(analysis_id):
         c.execute('SELECT * FROM analyses WHERE id = ?', (analysis_id,))
         row = c.fetchone()
         if row:
-            analysis_json = json.loads(row[4])
-            from analyzer import ensure_analysis_fields
-            analysis_json = ensure_analysis_fields(analysis_json)
-            return {
-                'id': row[0],
-                'fileName': row[1],
-                'date': row[2],
-                'status': row[3],
-                'analysis_json': analysis_json,
-                'filePath': row[5] if len(row) > 5 else None,
-                'provider': row[7] if len(row) > 7 else None,
-                'model': row[8] if len(row) > 8 else None
-            }
+            try:
+                # Handle both string and already-parsed JSON
+                if isinstance(row[4], str):
+                    analysis_json = json.loads(row[4])
+                else:
+                    analysis_json = row[4]
+                
+                # Ensure analysis_json is a dictionary before calling ensure_analysis_fields
+                if not isinstance(analysis_json, dict):
+                    print(f"Warning: analysis_json is not a dict, it's a {type(analysis_json)}: {analysis_json}")
+                    # Try to parse it as JSON if it's a string
+                    if isinstance(analysis_json, str):
+                        try:
+                            analysis_json = json.loads(analysis_json)
+                        except json.JSONDecodeError:
+                            # If it can't be parsed, create a minimal structure
+                            analysis_json = {'error': 'Failed to parse analysis JSON', 'raw_data': str(analysis_json)}
+                    else:
+                        # For other types, create a minimal structure
+                        analysis_json = {'error': 'Invalid analysis JSON type', 'raw_data': str(analysis_json)}
+                
+                from analyzer import ensure_analysis_fields
+                analysis_json = ensure_analysis_fields(analysis_json)
+                
+                return {
+                    'id': row[0],
+                    'fileName': row[1],
+                    'date': row[2],
+                    'status': row[3],
+                    'analysis_json': analysis_json,
+                    'filePath': row[5] if len(row) > 5 else None,
+                    'provider': row[7] if len(row) > 7 else None,
+                    'model': row[8] if len(row) > 8 else None
+                }
+            except Exception as e:
+                print(f"Error processing analysis {analysis_id}: {e}")
+                # Return a basic structure with error information
+                return {
+                    'id': row[0],
+                    'fileName': row[1],
+                    'date': row[2],
+                    'status': row[3],
+                    'analysis_json': {'error': f'Failed to process analysis: {str(e)}'},
+                    'filePath': row[5] if len(row) > 5 else None,
+                    'provider': row[7] if len(row) > 7 else None,
+                    'model': row[8] if len(row) > 8 else None
+                }
         return None
 
 def list_analyses():
@@ -727,7 +796,7 @@ def clear_ot_threat_intel():
         conn.commit()
 
 def clear_all_data():
-    """Delete all rows from all tables in the database."""
+    """Delete all rows from analysis and baseline tables, but preserve users and sessions."""
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('DELETE FROM analyses')
@@ -735,8 +804,9 @@ def clear_all_data():
         c.execute('DELETE FROM comparison_history')
         c.execute('DELETE FROM ot_threat_intel')
         c.execute('DELETE FROM audit_log')
-        c.execute('DELETE FROM users')
-        c.execute('DELETE FROM user_sessions')
+        # Don't delete users and user_sessions to preserve authentication
+        # c.execute('DELETE FROM users')
+        # c.execute('DELETE FROM user_sessions')
         conn.commit()
 
 def main():
@@ -746,7 +816,12 @@ def main():
         return
     if len(sys.argv) > 2 and sys.argv[1] == '--get-analysis':
         from db import get_analysis
-        result = get_analysis(int(sys.argv[2]))
+        try:
+            analysis_id = int(sys.argv[2])
+        except ValueError:
+            print(json.dumps({'ok': False, 'error': f'Invalid analysis ID: {sys.argv[2]}', 'analysis': None}))
+            return
+        result = get_analysis(analysis_id)
         if result is None:
             print(json.dumps({'ok': False, 'error': 'Analysis not found', 'analysis': None}))
         else:
@@ -814,8 +889,8 @@ def main():
     if len(sys.argv) > 2 and sys.argv[1] == '--save-comparison-history':
         from db import save_comparison_history
         # Accepts: analysis_id, baseline_id, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model
-        analysis_id = int(sys.argv[2]) if sys.argv[2] != 'null' else None
-        baseline_id = int(sys.argv[3]) if sys.argv[3] != 'null' else None
+        analysis_id = int(sys.argv[2]) if sys.argv[2] not in ['null', '', 'None'] else None
+        baseline_id = int(sys.argv[3]) if sys.argv[3] not in ['null', '', 'None'] else None
         llm_prompt = sys.argv[4]
         llm_result = sys.argv[5]
         analysis_file_name = sys.argv[6] if len(sys.argv) > 6 else None
@@ -865,7 +940,17 @@ def main():
         return
     
     if len(sys.argv) > 2 and sys.argv[1] == '--create-session':
-        user_id = int(sys.argv[2])
+        try:
+            user_id = int(sys.argv[2])
+        except ValueError:
+            # If user_id is not a number, try to find user by username
+            username = sys.argv[2]
+            user = get_user_by_username(username)
+            if user:
+                user_id = user['id']
+            else:
+                print(json.dumps({'success': False, 'error': f'User not found: {username}'}))
+                return
         result = create_session(user_id)
         print(json.dumps(result))
         return
@@ -894,20 +979,59 @@ def main():
         return
     
     if len(sys.argv) > 2 and sys.argv[1] == '--delete-user':
-        user_id = int(sys.argv[2])
+        try:
+            user_id = int(sys.argv[2])
+        except ValueError:
+            # If user_id is not a number, try to find user by username
+            username = sys.argv[2]
+            user = get_user_by_username(username)
+            if user:
+                user_id = user['id']
+            else:
+                print(json.dumps({'success': False, 'error': f'User not found: {username}'}))
+                return
         result = delete_user(user_id)
         print(json.dumps(result))
         return
     
+    if len(sys.argv) > 5 and sys.argv[1] == '--register-user':
+        username = sys.argv[2]
+        email = sys.argv[3]
+        password = sys.argv[4]
+        role = sys.argv[5] if len(sys.argv) > 5 else 'user'
+        result = create_user(username, email, password, role)
+        print(json.dumps(result))
+        return
+    
     if len(sys.argv) > 3 and sys.argv[1] == '--toggle-user-status':
-        user_id = int(sys.argv[2])
+        try:
+            user_id = int(sys.argv[2])
+        except ValueError:
+            # If user_id is not a number, try to find user by username
+            username = sys.argv[2]
+            user = get_user_by_username(username)
+            if user:
+                user_id = user['id']
+            else:
+                print(json.dumps({'success': False, 'error': f'User not found: {username}'}))
+                return
         is_active = sys.argv[3].lower() == 'true'
         result = toggle_user_status(user_id, is_active)
         print(json.dumps(result))
         return
     
     if len(sys.argv) > 3 and sys.argv[1] == '--reset-user-password':
-        user_id = int(sys.argv[2])
+        try:
+            user_id = int(sys.argv[2])
+        except ValueError:
+            # If user_id is not a number, try to find user by username
+            username = sys.argv[2]
+            user = get_user_by_username(username)
+            if user:
+                user_id = user['id']
+            else:
+                print(json.dumps({'success': False, 'error': f'User not found: {username}'}))
+                return
         new_password = sys.argv[3]
         result = reset_user_password(user_id, new_password)
         print(json.dumps(result))

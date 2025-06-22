@@ -1,19 +1,11 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  PlusIcon,
-  DocumentArrowUpIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
-  DocumentTextIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
 
 interface QuickAction {
   id: string;
   name: string;
   description: string;
-  icon: React.ElementType;
+  icon: string;
   onClick: () => void;
   color: string;
   disabled?: boolean;
@@ -27,7 +19,7 @@ const QuickActions: React.FC = () => {
       id: 'upload-file',
       name: 'Upload PLC File',
       description: 'Analyze new PLC code file',
-      icon: DocumentArrowUpIcon,
+      icon: '',
       onClick: () => navigate('/upload'),
       color: 'text-blue-600 hover:text-blue-700',
     },
@@ -35,7 +27,7 @@ const QuickActions: React.FC = () => {
       id: 'create-baseline',
       name: 'Create Baseline',
       description: 'Establish security baseline',
-      icon: PlusIcon,
+      icon: '',
       onClick: () => navigate('/baselines'),
       color: 'text-green-600 hover:text-green-700',
     },
@@ -43,7 +35,7 @@ const QuickActions: React.FC = () => {
       id: 'run-comparison',
       name: 'Run Comparison',
       description: 'Compare analysis to baseline',
-      icon: ChartBarIcon,
+      icon: '',
       onClick: () => navigate('/comparisons'),
       color: 'text-purple-600 hover:text-purple-700',
     },
@@ -51,7 +43,7 @@ const QuickActions: React.FC = () => {
       id: 'view-threat-intel',
       name: 'Threat Intelligence',
       description: 'Browse OT security threats',
-      icon: DocumentTextIcon,
+      icon: '',
       onClick: () => navigate('/ot-threat-intel'),
       color: 'text-orange-600 hover:text-orange-700',
     },
@@ -59,7 +51,7 @@ const QuickActions: React.FC = () => {
       id: 'sync-threats',
       name: 'Sync Threats',
       description: 'Update threat database',
-      icon: ArrowPathIcon,
+      icon: '',
       onClick: () => {
         // @ts-ignore
         window.electron?.invoke('bulk-ot-threat-intel');
@@ -77,8 +69,6 @@ const QuickActions: React.FC = () => {
         
         <div className="space-y-3">
           {quickActions.map((action) => {
-            const IconComponent = action.icon;
-            
             return (
               <button
                 key={action.id}
@@ -91,15 +81,7 @@ const QuickActions: React.FC = () => {
                   group
                 `}
               >
-                <div className={`
-                  flex items-center justify-center w-10 h-10 rounded-lg bg-gray-50 
-                  group-hover:bg-gray-100 transition-colors
-                  ${action.disabled ? '' : action.color}
-                `}>
-                  <IconComponent className="w-5 h-5" />
-                </div>
-                
-                <div className="ml-4 flex-1 text-left">
+                <div className="flex-1 text-left">
                   <div className="text-sm font-medium text-gray-900">
                     {action.name}
                   </div>

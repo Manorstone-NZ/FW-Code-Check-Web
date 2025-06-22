@@ -1,0 +1,125 @@
+{
+  "summary": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "tests": [
+    {
+      "test": "Database Initialization",
+      "status": "PASS",
+      "message": "Database initialized successfully",
+      "timestamp": "2025-06-22T17:55:54.263711"
+    },
+    {
+      "test": "Database Schema",
+      "status": "PASS",
+      "message": "All required tables present. Optional tables missing: ['sessions', 'comparisons']",
+      "timestamp": "2025-06-22T17:55:54.263917"
+    },
+    {
+      "test": "File Structure - src/main/electron.js",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263936"
+    },
+    {
+      "test": "File Structure - src/main/preload.js",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263944"
+    },
+    {
+      "test": "File Structure - src/python/analyzer.py",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263949"
+    },
+    {
+      "test": "File Structure - src/python/db.py",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263955"
+    },
+    {
+      "test": "File Structure - src/python/config.py",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263960"
+    },
+    {
+      "test": "File Structure - src/renderer/App.tsx",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263967"
+    },
+    {
+      "test": "File Structure - package.json",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263973"
+    },
+    {
+      "test": "File Structure - webpack.config.js",
+      "status": "PASS",
+      "message": "File exists",
+      "timestamp": "2025-06-22T17:55:54.263988"
+    },
+    {
+      "test": "OpenAI Configuration",
+      "status": "PASS",
+      "message": "OpenAI key file exists and has content",
+      "timestamp": "2025-06-22T17:55:54.264236"
+    },
+    {
+      "test": "User Management - List Users",
+      "status": "PASS",
+      "message": "Found 2 users",
+      "timestamp": "2025-06-22T17:55:54.264408"
+    },
+    {
+      "test": "CLI List Users",
+      "status": "PASS",
+      "message": "CLI command executed successfully",
+      "timestamp": "2025-06-22T17:55:54.675839"
+    },
+    {
+      "test": "Baseline Management - List Baselines",
+      "status": "PASS",
+      "message": "Found 0 baselines",
+      "timestamp": "2025-06-22T17:55:54.676566"
+    },
+    {
+      "test": "CLI List Baselines",
+      "status": "PASS",
+      "message": "CLI returned 0 baselines",
+      "timestamp": "2025-06-22T17:55:54.915447"
+    },
+    {
+      "test": "Analysis Management - List Analyses",
+      "status": "PASS",
+      "message": "Found 1 analyses",
+      "timestamp": "2025-06-22T17:55:54.916373"
+    },
+    {
+      "test": "CLI List Analyses",
+      "status": "PASS",
+      "message": "CLI returned 1 analyses",
+      "timestamp": "2025-06-22T17:55:55.149679"
+    },
+    {
+      "test": "OT Threat Intel",
+      "status": "PASS",
+      "message": "OT threat intel table has 0 entries",
+      "timestamp": "2025-06-22T17:55:55.150007"
+    },
+    {
+      "test": "LLM Logging",
+      "status": "PASS",
+      "message": "LLM log file contains 63 entries",
+      "timestamp": "2025-06-22T17:55:55.151821"
+    }
+  ],
+  "timestamp": "2025-06-22T17:55:55.152125"
+}
