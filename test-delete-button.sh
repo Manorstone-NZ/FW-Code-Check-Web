@@ -37,8 +37,8 @@ print('Created test analysis:', result)
 analyses = get_analysis_list()
 print('Total analyses before delete:', len(analyses))
 
-# Delete the analysis
-delete_result = delete_analysis(result['id'])
+# Delete the analysis (result is the analysis ID integer)
+delete_result = delete_analysis(result)
 print('Delete result:', delete_result)
 
 # Verify it's gone

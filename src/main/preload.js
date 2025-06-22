@@ -71,6 +71,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showSaveDirectoryPicker: () => ipcRenderer.invoke('show-save-directory-picker'),
   installOllamaModel: (modelName) => ipcRenderer.invoke('install-ollama-model', modelName),
   
+  // === Comparison Handler Alias ===
+  compareAnalyses: (analysisPathOrContent, baselinePathOrContent, provider) => ipcRenderer.invoke('compare-analyses', analysisPathOrContent, baselinePathOrContent, provider),
+  
   // === Test Suite Methods ===
   openTestDashboard: () => ipcRenderer.invoke('open-test-dashboard'),
   openDevTools: () => ipcRenderer.invoke('open-dev-tools'),

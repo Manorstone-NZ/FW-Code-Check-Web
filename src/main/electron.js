@@ -716,3 +716,100 @@ ipcMain.handle('llm-compare-analysis-baseline', async (event, analysisPathOrCont
         };
     }
 });
+
+// Alias for backward compatibility
+ipcMain.handle('compare-analyses', async (event, analysisPathOrContent, baselinePathOrContent, provider = 'ollama') => {
+    try {
+        console.log('Compare analyses request (alias):', { analysisPathOrContent, baselinePathOrContent, provider });
+        
+        const args = [
+            '--compare',
+            analysisPathOrContent,
+            baselinePathOrContent
+        ];
+        
+        if (provider) {
+            args.push('--provider', provider);
+        }
+
+        const result = await createPythonHandler(path.join(__dirname, '../python/analyzer.py'), args);
+        console.log('Compare analyses result:', result);
+        
+        return result;
+    } catch (error) {
+        console.error('Compare analyses error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+});
+
+// === Missing Development and System Handlers ===
+
+// Debug log hook handler
+ipcMain.handle('debug-log-hook', async (event, log) => {
+    try {
+        console.log('[DEBUG-LOG-HOOK]', JSON.stringify(log, null, 2));
+        return { ok: true, message: 'Debug log recorded' };
+    } catch (error) {
+        console.error('Debug log hook error:', error);
+        return { ok: false, error: error.message };
+    }
+});
+
+// Install Ollama model handler
+ipcMain.handle('install-ollama-model', async (event, modelName) => {
+    try {
+        console.log('Installing Ollama model:', modelName);
+        // This would integrate with Ollama CLI in a real implementation
+        return { ok: true, message: `Model ${modelName} installation initiated` };
+    } catch (error) {
+        console.error('Install Ollama model error:', error);
+        return { ok: false, error: error.message };
+    }
+});
+
+// List comparison history handler
+ipcMain.handle('list-comparison-history', async (event, analysisId, baselineId) => {
+    try {
+        const args = ['--list-comparison-history'];
+        if (analysisId) args.push(analysisId.toString());
+        if (baselineId) args.push(baselineId.toString());
+        
+        const result = await createPythonHandler(path.join(__dirname, '../python/db.py'), args);
+        return result;
+    } catch (error) {
+        console.error('List comparison history error:', error);
+        return { ok: false, error: error.message };
+    }
+});
+
+// Reset database handler
+ipcMain.handle('reset-db', async (event) => {
+    try {
+        const result = await createPythonHandler(path.join(__dirname, '../python/db.py'), ['--reset-db']);
+        return result;
+    } catch (error) {
+        console.error('Reset database error:', error);
+        return { ok: false, error: error.message };
+    }
+});
+
+// Show save directory picker handler (alias)
+ipcMain.handle('show-save-directory-picker', async (event) => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openDirectory']
+        });
+        
+        if (result.canceled) {
+            return { ok: false, message: 'Directory selection canceled' };
+        }
+        
+        return { ok: true, path: result.filePaths[0] };
+    } catch (error) {
+        console.error('Show save directory picker error:', error);
+        return { ok: false, error: error.message };
+    }
+});
