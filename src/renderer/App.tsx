@@ -11,6 +11,7 @@ import ComparisonsPage from './pages/ComparisonsPage';
 import AnalysisPage from './pages/AnalysisPage';
 import OTThreatIntelDashboard from './pages/OTThreatIntelDashboard';
 import UserManagementPage from './pages/UserManagementPage';
+import AdminPage from './pages/AdminPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
 import AuthWrapper from './components/auth/AuthWrapper';
@@ -55,6 +56,7 @@ const App = () => {
                         <Route path="/comparisons" element={<ComparisonsPage />} />
                         <Route path="/analysis" element={<AnalysisPage />} />
                         <Route path="/ot-threat-intel" element={<OTThreatIntelDashboard />} />
+                        <Route path="/admin" element={<AdminPage />} />
                         <Route path="/users" element={<UserManagementPage />} />
                       </Routes>
                     </ErrorBoundary>

@@ -39,6 +39,17 @@ const UserManagementPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [resetPasswordModal, setResetPasswordModal] = useState<{
+    isOpen: boolean;
+    userId: number | null;
+    username: string;
+    newPassword: string;
+  }>({
+    isOpen: false,
+    userId: null,
+    username: '',
+    newPassword: ''
+  });
 
   // Check if current user is admin
   const isAdmin = currentUser?.role === 'admin';
@@ -183,8 +194,19 @@ const UserManagementPage: React.FC = () => {
   };
 
   const handleResetPassword = async (userId: number, username: string) => {
-    const newPassword = window.prompt(`Enter new password for ${username}:`);
-    if (!newPassword) return;
+    // Open the reset password modal instead of using window.prompt
+    setResetPasswordModal({
+      isOpen: true,
+      userId,
+      username,
+      newPassword: ''
+    });
+  };
+
+  const executePasswordReset = async () => {
+    const { userId, username, newPassword } = resetPasswordModal;
+    
+    if (!userId || !newPassword) return;
 
     if (newPassword.length < 8) {
       alert('Password must be at least 8 characters');
@@ -192,12 +214,15 @@ const UserManagementPage: React.FC = () => {
     }
 
     try {
-      setActionLoading({ [`reset_${userId}`]: true });
+      setActionLoading(prev => ({ ...prev, [`reset_${userId}`]: true }));
       
       const result = await window.electronAPI.resetUserPassword(userId, newPassword);
+      
       if (result.success) {
         alert('Password reset successfully');
         logger.info('Password reset successfully', { userId, username });
+        // Close modal on success
+        setResetPasswordModal({ isOpen: false, userId: null, username: '', newPassword: '' });
       } else {
         alert('Failed to reset password: ' + (result.error || 'Unknown error'));
       }
@@ -205,7 +230,11 @@ const UserManagementPage: React.FC = () => {
       alert('Failed to reset password: ' + (err instanceof Error ? err.message : 'Unknown error'));
       logger.error('Failed to reset password', { error: err, userId, username });
     } finally {
-      setActionLoading({});
+      setActionLoading(prev => {
+        const newState = { ...prev };
+        delete newState[`reset_${userId}`];
+        return newState;
+      });
     }
   };
 
@@ -349,7 +378,7 @@ const UserManagementPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
+                <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password
                   </label>
@@ -358,22 +387,22 @@ const UserManagementPage: React.FC = () => {
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 pr-24 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-gray-500 hover:text-gray-700 focus:outline-none"
                     >
-                      <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                      <span className="select-none whitespace-nowrap">
                         {showPassword ? 'HIDE' : 'SHOW'}
                       </span>
                     </button>
                   </div>
                 </div>
 
-                <div>
+                <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Confirm Password
                   </label>
@@ -386,7 +415,7 @@ const UserManagementPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex space-x-3 pt-4">
+                <div className="flex space-x-3 pt-6">
                   <button
                     type="submit"
                     disabled={actionLoading.create}
@@ -474,29 +503,48 @@ const UserManagementPage: React.FC = () => {
                       {formatDate(user.last_login)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-4">
                         <button
                           onClick={() => handleToggleUserStatus(user.id, user.username, user.is_active || false)}
                           disabled={user.id === currentUser?.id || actionLoading[`toggle_${user.id}`]}
-                          className={`px-2 py-1 text-xs font-semibold rounded shadow focus:outline-none focus:ring-2 focus:ring-opacity-50 transition disabled:opacity-50 ${
+                          className={`px-4 py-2 text-sm font-semibold rounded-lg shadow-md border-2 focus:outline-none focus:ring-4 focus:ring-opacity-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                             user.is_active 
-                              ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-400' 
-                              : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-400'
+                              ? 'bg-orange-500 border-orange-600 text-white hover:bg-orange-600 hover:border-orange-700 focus:ring-orange-300' 
+                              : 'bg-green-500 border-green-600 text-white hover:bg-green-600 hover:border-green-700 focus:ring-green-300'
                           }`}
+                          style={user.is_active ? {
+                            backgroundColor: '#f97316',
+                            borderColor: '#ea580c',
+                            color: '#ffffff'
+                          } : {
+                            backgroundColor: '#22c55e',
+                            borderColor: '#16a34a',
+                            color: '#ffffff'
+                          }}
                         >
                           {actionLoading[`toggle_${user.id}`] ? '...' : (user.is_active ? 'Deactivate' : 'Activate')}
                         </button>
                         <button
                           onClick={() => handleResetPassword(user.id, user.username)}
                           disabled={actionLoading[`reset_${user.id}`]}
-                          className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-semibold bg-blue-500 border-2 border-blue-600 text-white rounded-lg shadow-md hover:bg-blue-600 hover:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            borderColor: '#2563eb',
+                            color: '#ffffff'
+                          }}
                         >
                           {actionLoading[`reset_${user.id}`] ? '...' : 'Reset Password'}
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id, user.username)}
                           disabled={user.id === currentUser?.id || actionLoading[`delete_${user.id}`]}
-                          className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-semibold bg-red-500 border-2 border-red-600 text-white rounded-lg shadow-md hover:bg-red-600 hover:border-red-700 focus:outline-none focus:ring-4 focus:ring-red-300 focus:ring-opacity-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            backgroundColor: '#ef4444',
+                            borderColor: '#dc2626',
+                            color: '#ffffff'
+                          }}
                         >
                           {actionLoading[`delete_${user.id}`] ? '...' : 'Delete'}
                         </button>
@@ -531,6 +579,60 @@ const UserManagementPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Reset Password Modal */}
+        {resetPasswordModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Reset Password for {resetPasswordModal.username}
+              </h2>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                executePasswordReset();
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={resetPasswordModal.newPassword}
+                    onChange={(e) => setResetPasswordModal(prev => ({
+                      ...prev,
+                      newPassword: e.target.value
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter new password (min 8 characters)"
+                    required
+                    minLength={8}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Password must be at least 8 characters long
+                  </p>
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={actionLoading[`reset_${resetPasswordModal.userId}`] || resetPasswordModal.newPassword.length < 8}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    {actionLoading[`reset_${resetPasswordModal.userId}`] ? 'Resetting...' : 'Reset Password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordModal({ isOpen: false, userId: null, username: '', newPassword: '' })}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

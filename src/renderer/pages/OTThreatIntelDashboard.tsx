@@ -100,8 +100,7 @@ const OTThreatIntelDashboard: React.FC = () => {
           className="px-4 py-2 bg-green-700 text-white rounded shadow hover:bg-green-800 text-sm disabled:opacity-50"
           onClick={async () => {
             setLoading(true);
-            // @ts-ignore
-            await window.electron.invoke('bulk-ot-threat-intel');
+            await window.electronAPI.bulkOTThreatIntel();
             await fetchEntries();
             setLoading(false);
           }}

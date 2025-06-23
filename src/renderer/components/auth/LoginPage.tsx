@@ -43,19 +43,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onShowRegister }) => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 flex items-center justify-center">
+          <div className="flex justify-center mb-4">
             <img 
-              src="./firstwatch-logo.jpg" 
+              src="/firstwatch-logo.jpg" 
               alt="First Watch Logo" 
-              className="h-10 w-10 object-contain"
+              className="h-24 w-24 object-contain rounded-lg"
             />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Sign in to PLC Code Check System
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">
             Secure PLC Code Analysis Platform
-          </p>
+          </h2>
         </div>
 
         {/* Login Form */}
@@ -114,15 +111,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onShowRegister }) => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none relative block w-full px-3 py-2 pr-28 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-6 flex items-center text-xs text-gray-500 hover:text-gray-700 focus:outline-none"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                  <span className="select-none">
                     {showPassword ? 'HIDE' : 'SHOW'}
                   </span>
                 </button>

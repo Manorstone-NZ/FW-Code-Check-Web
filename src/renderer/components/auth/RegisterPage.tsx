@@ -83,10 +83,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-green-100">
-              <span className="h-8 w-8 text-green-600 flex items-center justify-center text-xs font-bold">Success</span>
-            </div>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            <h2 className="text-3xl font-extrabold text-gray-900">
               Registration Successful!
             </h2>
             <p className="mt-2 text-sm text-gray-600">
@@ -113,12 +110,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-          </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2 className="text-3xl font-extrabold text-gray-900">
             Create Account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
@@ -221,15 +213,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none relative block w-full px-3 py-2 pr-28 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Choose a strong password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-6 flex items-center text-xs text-gray-500 hover:text-gray-700 focus:outline-none"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                  <span className="select-none">
                     {showPassword ? 'HIDE' : 'SHOW'}
                   </span>
                 </button>
@@ -253,15 +245,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onShowLogin }) => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none relative block w-full px-3 py-2 pr-28 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Confirm your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-6 flex items-center text-xs text-gray-500 hover:text-gray-700 focus:outline-none"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  <span className="h-5 w-5 text-gray-400 flex items-center justify-center text-xs font-bold">
+                  <span className="select-none">
                     {showConfirmPassword ? 'HIDE' : 'SHOW'}
                   </span>
                 </button>

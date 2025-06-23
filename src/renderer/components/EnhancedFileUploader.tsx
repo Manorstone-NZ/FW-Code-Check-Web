@@ -252,6 +252,7 @@ const EnhancedFileUploader = () => {
         return 'low';
     };
 
+    /* COMMENTED OUT - Git submit functionality not being used yet
     const canSubmitToMain = (analysisResult: any) => {
         const riskLevel = checkRiskLevel(analysisResult);
         return riskLevel === 'low';
@@ -329,6 +330,7 @@ const EnhancedFileUploader = () => {
             }
         }
     };
+    */
 
     // Update model list when provider changes
     const handleProviderChange = (provider: string) => {
@@ -545,8 +547,8 @@ const EnhancedFileUploader = () => {
                                 Save as Baseline
                             </button>
 
-                            {/* Git-specific actions */}
-                            {result.git_metadata && (
+                            {/* Git-specific actions - COMMENTED OUT - Not using yet */}
+                            {/* {result.git_metadata && (
                                 <>
                                     {canSubmitToMain(result) ? (
                                         <button
@@ -567,7 +569,7 @@ const EnhancedFileUploader = () => {
                                         </button>
                                     )}
                                 </>
-                            )}
+                            )} */}
                             
                             <button
                                 className={btnGray}

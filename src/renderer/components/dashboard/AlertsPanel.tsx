@@ -86,7 +86,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
           id: 'llm-provider-check',
           type: 'info',
           severity: 'medium',
-          title: 'LLM Provider Status',
+          title: 'INFO LLM Provider Status',
           message: 'OpenAI and Ollama services are operational',
           timestamp: new Date(now.getTime() - 10 * 60 * 1000).toISOString(),
         }
@@ -130,16 +130,18 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ maxAlerts = 5 }) => {
     switch (type) {
       case 'security':
         return severity === 'critical' 
-          ? <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold">SEC</span>
-          : <span className="w-5 h-5 text-yellow-500 flex items-center justify-center font-bold">!</span>;
+          ? <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold text-xs">SEC</span>
+          : <span className="w-5 h-5 text-yellow-500 flex items-center justify-center font-bold text-xs">SEC</span>;
       case 'system':
         return severity === 'low'
-          ? <span className="w-5 h-5 text-green-500 flex items-center justify-center font-bold text-xs">Good</span>
-          : <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold">SYS</span>;
+          ? <span className="w-5 h-5 text-green-500 flex items-center justify-center font-bold text-xs">SYS</span>
+          : <span className="w-5 h-5 text-red-500 flex items-center justify-center font-bold text-xs">SYS</span>;
       case 'processing':
-        return <span className="w-5 h-5 text-orange-500 flex items-center justify-center font-bold">PROC</span>;
+        return <span className="w-5 h-5 text-orange-500 flex items-center justify-center font-bold text-xs">PROC</span>;
+      case 'info':
+        return <span className="w-5 h-5 text-blue-500 flex items-center justify-center font-bold text-xs">INFO</span>;
       default:
-        return <span className="w-5 h-5 text-blue-500 flex items-center justify-center font-bold">!</span>;
+        return <span className="w-5 h-5 text-gray-500 flex items-center justify-center font-bold text-xs">ALERT</span>;
     }
   };
 

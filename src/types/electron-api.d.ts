@@ -176,7 +176,11 @@ declare global {
       getOTThreatIntelLastSync: () => Promise<any>;
       syncOTThreatIntel: (provider?: string) => Promise<any>;
       updateOTThreatIntelEntry: (entry: any) => Promise<any>;
+      clearOTThreatIntel: () => Promise<any>;
+      bulkOTThreatIntel: () => Promise<any>;
+      clearAllData: () => Promise<any>;
       listAnalyses: () => Promise<any>;
+      getAnalyses: () => Promise<any>;
       listBaselines: () => Promise<any>;
       debugLogHook: (log: any) => void;
       getSavedComparisons: () => Promise<any>;
@@ -188,6 +192,7 @@ declare global {
       saveComparisonResult: (payload: any) => Promise<any>;
       deleteComparisonResult: (comparisonId: number) => Promise<any>;
       getLLMLogs: () => Promise<any>;
+      clearLLMLog: () => Promise<any>;
       deleteBaseline: (baselineId: number) => Promise<any>;
       deleteAnalysis: (analysisId: number) => Promise<any>;
       installOllamaModel: (model: string) => Promise<any>;

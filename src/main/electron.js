@@ -10,7 +10,7 @@ let mainWindow = null;
 const venvPython = path.join(__dirname, '../../venv/bin/python3');
 const pythonExec = fsSync.existsSync(venvPython) ? venvPython : 'python3';
 
-const createWindow = () => {
+const createWindow = async () => {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -21,9 +21,17 @@ const createWindow = () => {
         },
     });
 
-    // Load the built React app from public/index.html
-    const indexPath = path.join(__dirname, '../../public/index.html');
-    mainWindow.loadFile(indexPath);
+    // Load the built React app - prefer HTTP server when available
+    try {
+        // Try to load from localhost HTTP server first
+        await mainWindow.loadURL('http://localhost:3000');
+        console.log('Loaded from HTTP server');
+    } catch (error) {
+        // Fallback to file system
+        console.log('HTTP server not available, loading from file system');
+        const indexPath = path.join(__dirname, '../../public/index.html');
+        mainWindow.loadFile(indexPath);
+    }
 
     // Add menu for easy access to test suite
     const { Menu } = require('electron');
@@ -565,12 +573,22 @@ ipcMain.handle('clear-ot-threat-intel', async () => {
     }
 });
 
-// Bulk OT threat intel sync
+// Bulk OT threat intel handler
 ipcMain.handle('bulk-ot-threat-intel', async () => {
     try {
         return createPythonHandler(path.join(__dirname, '../python/sync_ot_threat_intel.py'), ['--bulk-ot-threat-intel']);
     } catch (error) {
         console.error('Bulk OT threat intel error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Clear all data (analyses and OT threat intel)
+ipcMain.handle('clear-all-data', async () => {
+    try {
+        return createPythonHandler(path.join(__dirname, '../python/db.py'), ['--reset-db']);
+    } catch (error) {
+        console.error('Clear all data error:', error);
         return { success: false, error: error.message };
     }
 });
@@ -649,6 +667,22 @@ ipcMain.handle('get-llm-logs', async () => {
     } catch (error) {
         console.error('Get LLM logs error:', error);
         return []; // Return empty array on error
+    }
+});
+
+// Handler for clearing LLM logs
+ipcMain.handle('clear-llm-log', async () => {
+    try {
+        const logsPath = path.join(__dirname, '../../llm-interactions.log.json');
+        if (fsSync.existsSync(logsPath)) {
+            fsSync.writeFileSync(logsPath, '', 'utf8');
+            return { success: true, message: 'LLM logs cleared successfully' };
+        } else {
+            return { success: true, message: 'No log file to clear' };
+        }
+    } catch (error) {
+        console.error('Clear LLM logs error:', error);
+        throw new Error(`Failed to clear LLM logs: ${error.message}`);
     }
 });
 

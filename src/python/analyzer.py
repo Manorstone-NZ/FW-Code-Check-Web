@@ -45,14 +45,10 @@ def log_llm_interaction(prompt, result, success, provider=None, model=None):
         'model': model
     }
     try:
-        if os.path.exists(LLM_LOG_PATH):
-            with open(LLM_LOG_PATH, 'r', encoding='utf-8') as f:
-                logs = json.load(f)
-        else:
-            logs = []
-        logs.append(log_entry)
-        with open(LLM_LOG_PATH, 'w', encoding='utf-8') as f:
-            json.dump(logs, f, indent=2)
+        # Use newline-delimited JSON format for easier reading
+        with open(LLM_LOG_PATH, 'a', encoding='utf-8') as f:
+            json.dump(log_entry, f)
+            f.write('\n')
     except Exception as e:
         pass  # Don't crash on logging error
 

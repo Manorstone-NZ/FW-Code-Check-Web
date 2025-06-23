@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+// import logoSrc from '../assets/firstwatch-logo-2.png';
 
 const navItems = [
   { label: 'Dashboard', path: '/' },
@@ -8,9 +9,7 @@ const navItems = [
   { label: 'Baselines', path: '/baselines' },
   { label: 'Analysis', path: '/analysis' },
   { label: 'Comparisons', path: '/comparisons' },
-  { label: 'OT Threat Intel', path: '/ot-threat-intel' }, // New navigation link
-  // Only show LLM Log in development
-  ...(process.env.NODE_ENV !== 'production' ? [{ label: 'LLM Log', path: '/llm-log' }] : []),
+  { label: 'OT Threat Intel', path: '/ot-threat-intel' },
 ] as Array<{label: string; path: string; icon?: string}>;
 
 const Sidebar = () => {
@@ -29,7 +28,7 @@ const Sidebar = () => {
   return (
     <aside className="h-full w-64 bg-[#232B3A] text-white flex flex-col py-6 px-4 shadow-lg font-sans">
       <div className="mb-8 mt-4 flex flex-col items-center select-none">
-        <img src="./firstwatch-logo-2.png" alt="First Watch Logo" className="h-16 w-auto mb-3" style={{maxWidth: '200px'}} />
+        <img src="/firstwatch-logo-2.png" alt="First Watch Logo" className="h-16 w-auto mb-3" style={{maxWidth: '200px'}} onError={(e) => console.error('Logo failed to load:', '/firstwatch-logo-2.png', e)} onLoad={() => console.log('Logo loaded successfully:', '/firstwatch-logo-2.png')} />
       </div>
       
       {/* User Info */}
@@ -63,13 +62,13 @@ const Sidebar = () => {
           </NavLink>
         ))}
         
-        {/* Admin-only User Management */}
+        {/* Admin-only Administration */}
         {isAdmin && (
           <NavLink
-            to="/users"
+            to="/admin"
             className={({ isActive }) => `flex items-center px-4 py-2 mb-2 rounded-lg text-sm font-medium transition-colors duration-150 hover:bg-[#31405A] hover:text-[#0275D8] ${isActive ? 'bg-white text-[#232B3A] shadow font-semibold' : ''}`}
           >
-            <span>User Management</span>
+            <span>Administration</span>
           </NavLink>
         )}
         

@@ -291,6 +291,7 @@ test_system_handlers() {
     run_handler_existence_test "get-llm-status" "src/main/electron.js" "Get LLM status handler"
     run_handler_existence_test "check-llm-status" "src/main/electron.js" "Check LLM status handler"
     run_handler_existence_test "get-llm-logs" "src/main/electron.js" "Get LLM logs handler"
+    run_handler_existence_test "clear-llm-log" "src/main/electron.js" "Clear LLM log handler"
 }
 
 test_development_handlers() {

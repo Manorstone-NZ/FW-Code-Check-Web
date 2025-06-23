@@ -391,35 +391,6 @@ const AnalysisDetails: React.FC<AnalysisDetailsProps> = (props) => {
           'N/A'
         }
       </div>
-      {/* LLM preview */}
-      <div className="bg-blue-50 rounded-lg shadow p-4 mb-4">
-        <b>LLM Result (first 500 chars):</b>
-        {llm ? (
-          <pre className="whitespace-pre-wrap break-words">{llm.slice(0, 500)}</pre>
-        ) : (
-          <div className="mt-2">
-            <div className="text-red-600 font-medium">No LLM result found.</div>
-            <div className="text-sm text-gray-600 mt-2">
-              This can happen when:
-              <ul className="list-disc list-inside mt-1">
-                <li>The uploaded JSON doesn't contain analysis results</li>
-                <li>Analysis content is in an unexpected format or field name</li>
-                <li>The file contains test results or other non-analysis data</li>
-              </ul>
-            </div>
-            {analysis && typeof analysis === 'object' && (
-              <details className="mt-3">
-                <summary className="text-sm text-blue-600 cursor-pointer">
-                  Click to see available fields in this JSON
-                </summary>
-                <div className="text-xs bg-gray-100 p-2 rounded mt-2 font-mono">
-                  Available fields: {Object.keys(analysis).join(', ')}
-                </div>
-              </details>
-            )}
-          </div>
-        )}
-      </div>
       {/* Vulnerabilities */}
       {Array.isArray(vulnerabilities) && vulnerabilities.length > 0 && (
         <VulnerabilityPanel vulnerabilities={vulnerabilities} />

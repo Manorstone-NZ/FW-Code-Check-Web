@@ -53,8 +53,7 @@ const QuickActions: React.FC = () => {
       description: 'Update threat database',
       icon: '',
       onClick: () => {
-        // @ts-ignore
-        window.electron?.invoke('bulk-ot-threat-intel');
+        window.electronAPI?.bulkOTThreatIntel();
       },
       color: 'text-indigo-600 hover:text-indigo-700',
     },

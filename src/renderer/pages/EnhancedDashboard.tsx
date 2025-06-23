@@ -1,42 +1,19 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useAnalyses, useBaselines, useLLMStatus } from '../utils/analysisApi';
+import { useAnalyses, useBaselines } from '../utils/analysisApi';
 import { DashboardMetric, Severity } from '../../types/core';
 import MetricCard from '../components/dashboard/MetricCard';
-import TrendChart from '../components/dashboard/TrendChart';
-import SecurityOverview from '../components/dashboard/SecurityOverview';
 import RecentActivity from '../components/dashboard/RecentActivity';
-import SystemHealth from '../components/dashboard/SystemHealth';
-import QuickActions from '../components/dashboard/QuickActions';
-import AlertsPanel from '../components/dashboard/AlertsPanel';
-import { LLMProviderContext } from '../App';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { analyses, loading: loadingAnalyses, error: errorAnalyses } = useAnalyses();
   const { baselines, loading: loadingBaselines, error: errorBaselines } = useBaselines();
-  const { status: llmStatus, error: llmError, providers: llmProviders, onlineProviders } = useLLMStatus(60000); // 60s poll
-  const { provider: llmProvider } = React.useContext(LLMProviderContext);
   
   const [timeRange, setTimeRange] = React.useState<'24h' | '7d' | '30d'>('7d');
   const [refreshInterval, setRefreshInterval] = React.useState<number>(30000); // 30 seconds
   const [lastRefresh, setLastRefresh] = React.useState<Date>(new Date());
-  const [clearingDb, setClearingDb] = React.useState(false);
-
-  // Clear database function
-  const handleClearDb = async () => {
-    if (!window.confirm('Are you sure you want to clear all analysis data? This will delete all analyses, baselines, and comparisons, but preserve user accounts.')) return;
-    setClearingDb(true);
-    try {
-      // @ts-ignore
-      await window.electron.invoke('reset-db');
-      window.location.reload();
-    } catch (e) {
-      alert('Failed to clear data: ' + (e instanceof Error ? e.message : e));
-    }
-    setClearingDb(false);
-  };
 
   // Auto-refresh data
   React.useEffect(() => {
@@ -48,7 +25,7 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [refreshInterval]);
 
-  // Calculate comprehensive metrics
+  // Calculate comprehensive metrics focused on requested data
   const metrics = React.useMemo((): DashboardMetric[] => {
     // Safety check for undefined analyses
     if (!analyses || !Array.isArray(analyses)) {
@@ -62,105 +39,157 @@ const Dashboard: React.FC = () => {
       '30d': 30 * 24 * 60 * 60 * 1000,
     }[timeRange];
 
+    // Filter analyses by time range for consistency with daily chart
     const recentAnalyses = analyses.filter(a => 
       new Date(a.date).getTime() > now.getTime() - timeRangeMs
     );
 
-    // Total analyses metric
-    const totalAnalyses = analyses.length;
-    const previousPeriodAnalyses = analyses.filter(a =>
-      new Date(a.date).getTime() < now.getTime() - timeRangeMs &&
-      new Date(a.date).getTime() > now.getTime() - (timeRangeMs * 2)
-    ).length;
+    // Total baselines (not time-filtered)
+    const totalBaselines = baselines?.length || 0;
 
-    // Vulnerabilities - handle both old and new formats
-    const totalVulnerabilities = analyses.reduce((sum, a) => {
-      const vulns = a.analysis_json?.vulnerabilities || [];
-      return sum + vulns.length;
-    }, 0);
+    // Total analysis items (time-filtered)
+    const totalAnalysisItems = recentAnalyses.length;
 
-    const criticalVulns = analyses.reduce((sum, a) => {
-      const vulns = a.analysis_json?.vulnerabilities || [];
-      return sum + vulns.filter((v: any) => v.severity === 'critical').length;
-    }, 0);
+    // Severity distribution (time-filtered)
+    const severityCounts = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0
+    };
 
-    // High-risk instructions - handle both old and new formats
-    const highRiskInstructions = analyses.reduce((sum, a) => {
-      const instructions = a.analysis_json?.instruction_analysis || [];
-      return sum + instructions.filter((i: any) => 
-        i.risk_level === 'high' || i.risk_level === 'critical' || 
-        i.riskLevel === 'high' || i.riskLevel === 'critical'
-      ).length;
-    }, 0);
+    recentAnalyses.forEach(analysis => {
+      const vulns = analysis.analysis_json?.vulnerabilities || [];
+      const instructions = analysis.analysis_json?.instruction_analysis || [];
+      
+      // Count vulnerabilities by severity
+      vulns.forEach((vuln: any) => {
+        const severity = vuln.severity?.toLowerCase();
+        if (severity && severityCounts.hasOwnProperty(severity)) {
+          severityCounts[severity as keyof typeof severityCounts]++;
+        }
+      });
 
-    // Processing success rate
-    const completedAnalyses = analyses.filter(a => a.status === 'completed' || a.status === 'complete').length;
-    const successRate = totalAnalyses > 0 ? (completedAnalyses / totalAnalyses) * 100 : 0;
+      // Count instructions by risk level
+      instructions.forEach((instruction: any) => {
+        const riskLevel = instruction.risk_level?.toLowerCase() || instruction.riskLevel?.toLowerCase();
+        if (riskLevel === 'critical') severityCounts.critical++;
+        else if (riskLevel === 'high') severityCounts.high++;
+        else if (riskLevel === 'medium') severityCounts.medium++;
+        else if (riskLevel === 'low') severityCounts.low++;
+        else if (riskLevel === 'info') severityCounts.info++;
+      });
+    });
 
-    // Average processing time (mock data for now)
-    const avgProcessingTime = 45; // seconds
+    // Comparison count (time-filtered)
+    const totalComparisons = recentAnalyses.filter(a => a.baseline_id).length;
 
     return [
       {
-        id: 'total-analyses',
-        name: 'Total Analyses',
-        value: totalAnalyses,
-        previousValue: previousPeriodAnalyses,
-        change: totalAnalyses - previousPeriodAnalyses,
-        changeType: totalAnalyses >= previousPeriodAnalyses ? 'increase' : 'decrease',
-        status: 'healthy',
-        unit: '',
-      },
-      {
-        id: 'vulnerabilities',
-        name: 'Vulnerabilities Found',
-        value: totalVulnerabilities,
-        status: criticalVulns > 0 ? 'critical' : totalVulnerabilities > 10 ? 'warning' : 'healthy',
+        id: 'total-baselines',
+        name: 'Total Baselines',
+        value: totalBaselines,
+        status: totalBaselines > 0 ? 'healthy' : 'warning',
         changeType: 'neutral',
         unit: '',
       },
       {
-        id: 'critical-vulns',
-        name: 'Critical Vulnerabilities',
-        value: criticalVulns,
-        status: criticalVulns > 0 ? 'critical' : 'healthy',
+        id: 'analysis-items',
+        name: 'Analysis Items',
+        value: totalAnalysisItems,
+        status: 'healthy',
+        changeType: 'neutral',
+        unit: '',
+      },
+      {
+        id: 'vulnerabilities-found',
+        name: 'Vulnerabilities Found',
+        value: severityCounts.critical + severityCounts.high + severityCounts.medium + severityCounts.low,
+        status: severityCounts.critical > 0 ? 'critical' : severityCounts.high > 0 ? 'warning' : 'healthy',
+        changeType: 'neutral',
+        unit: '',
+      },
+      {
+        id: 'critical-issues',
+        name: 'Critical Issues',
+        value: severityCounts.critical,
+        status: severityCounts.critical > 0 ? 'critical' : 'healthy',
         changeType: 'neutral',
         unit: '',
       },
       {
         id: 'high-risk-instructions',
         name: 'High-Risk Instructions',
-        value: highRiskInstructions,
-        status: highRiskInstructions > 5 ? 'warning' : 'healthy',
+        value: severityCounts.high,
+        status: severityCounts.high > 0 ? 'warning' : 'healthy',
         changeType: 'neutral',
         unit: '',
       },
       {
-        id: 'success-rate',
+        id: 'processing-success-rate',
         name: 'Processing Success Rate',
-        value: `${successRate.toFixed(1)}%`,
-        status: successRate >= 95 ? 'healthy' : successRate >= 85 ? 'warning' : 'critical',
+        value: totalAnalysisItems > 0 ? '100.0%' : '0%',
+        status: 'healthy',
         changeType: 'neutral',
         unit: '',
       },
       {
-        id: 'avg-processing-time',
-        name: 'Avg Processing Time',
-        value: avgProcessingTime,
-        status: avgProcessingTime <= 60 ? 'healthy' : avgProcessingTime <= 120 ? 'warning' : 'critical',
-        changeType: 'neutral',
-        unit: 's',
-      },
-      {
-        id: 'baselines',
-        name: 'Active Baselines',
-        value: baselines?.length || 0,
+        id: 'comparisons',
+        name: 'Comparisons',
+        value: totalComparisons,
         status: 'healthy',
         changeType: 'neutral',
         unit: '',
       },
     ];
   }, [analyses, baselines, timeRange]);
+
+  // Calculate daily severity data for chart
+  const dailySeverityData = React.useMemo(() => {
+    if (!analyses || !Array.isArray(analyses)) {
+      return [];
+    }
+
+    const now = new Date();
+    const days = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : 30;
+    const dailyData: { [key: string]: { critical: number; high: number; medium: number; low: number; date: string } } = {};
+
+    // Initialize days
+    for (let i = 0; i < days; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      dailyData[dateStr] = { critical: 0, high: 0, medium: 0, low: 0, date: dateStr };
+    }
+
+    // Count items by day and severity
+    analyses.forEach(analysis => {
+      const analysisDate = new Date(analysis.date).toISOString().split('T')[0];
+      if (!dailyData[analysisDate]) return;
+
+      const vulns = analysis.analysis_json?.vulnerabilities || [];
+      const instructions = analysis.analysis_json?.instruction_analysis || [];
+
+      // Count vulnerabilities by severity
+      vulns.forEach((vuln: any) => {
+        const severity = vuln.severity?.toLowerCase();
+        if (severity && dailyData[analysisDate] && ['critical', 'high', 'medium', 'low'].includes(severity)) {
+          dailyData[analysisDate][severity as 'critical' | 'high' | 'medium' | 'low']++;
+        }
+      });
+
+      // Count instructions by risk level
+      instructions.forEach((instruction: any) => {
+        const riskLevel = instruction.risk_level?.toLowerCase() || instruction.riskLevel?.toLowerCase();
+        if (riskLevel && dailyData[analysisDate] && ['critical', 'high', 'medium', 'low'].includes(riskLevel)) {
+          dailyData[analysisDate][riskLevel as 'critical' | 'high' | 'medium' | 'low']++;
+        }
+      });
+    });
+
+    return Object.values(dailyData).reverse();
+  }, [analyses, timeRange]);
 
   // Get recent activity
   const recentActivity = React.useMemo(() => {
@@ -203,23 +232,6 @@ const Dashboard: React.FC = () => {
     return 'low';
   }
 
-  // Get severity distribution for security overview
-  const severityDistribution = React.useMemo(() => {
-    // Safety check for undefined analyses
-    if (!analyses || !Array.isArray(analyses)) {
-      return { critical: 0, high: 0, medium: 0, low: 0 };
-    }
-
-    const distribution = { critical: 0, high: 0, medium: 0, low: 0 };
-    
-    analyses.forEach(analysis => {
-      const severity = getAnalysisSeverity(analysis);
-      distribution[severity]++;
-    });
-
-    return distribution;
-  }, [analyses]);
-
   if (loadingAnalyses || loadingBaselines) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -260,108 +272,157 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* LLM Status */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <h3 className="text-lg font-semibold text-gray-900">LLM Status</h3>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${llmStatus === 'online' ? 'bg-green-100 text-green-800' : llmStatus === 'offline' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-              {llmStatus === 'online' ? 'Online' : llmStatus === 'offline' ? 'Offline' : 'Checking...'}
-            </span>
-          </div>
-        </div>
-        {llmError && (
-          <div className="mt-2 text-sm text-red-600">
-            Error: {llmError}
-          </div>
-        )}
-        {llmProviders && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {Object.entries(llmProviders).map(([provider, status]: [string, any]) => (
-              <div key={provider} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                <span className="text-sm font-medium text-gray-900 capitalize">{provider === 'openai' ? 'OpenAI' : 'Ollama'}</span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${status.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {status.ok ? 'Online' : 'Offline'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <button
-            className={`w-full px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition ${clearingDb ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={clearingDb}
-            onClick={handleClearDb}
-          >
-            {clearingDb ? 'Clearing Data...' : 'Clear Analysis Data'}
-          </button>
-          <p className="text-xs text-gray-500 mt-2">This will delete all analyses, baselines, and comparisons, but preserve user accounts.</p>
-        </div>
-      </div>
-
-      {/* System Health Banner */}
-      <SystemHealth />
-
-      {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.slice(0, 4).map((metric) => (
+      {/* Uniform Metrics Grid - All 6 main metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {metrics.map((metric) => (
           <MetricCard
             key={metric.id}
             metric={metric}
             onClick={() => {
               // Navigate to relevant page based on metric
-              if (metric.id === 'total-analyses') navigate('/analysis');
-              if (metric.id === 'vulnerabilities') navigate('/analysis?filter=vulnerabilities');
-              if (metric.id === 'baselines') navigate('/baselines');
+              if (metric.id === 'total-baselines') navigate('/baselines');
+              if (metric.id === 'analysis-items') navigate('/analysis');
+              if (metric.id === 'vulnerabilities-found') navigate('/analysis?filter=vulnerabilities');
+              if (metric.id === 'critical-issues') navigate('/analysis?filter=critical');
+              if (metric.id === 'high-risk-instructions') navigate('/analysis?filter=high-risk');
+              if (metric.id === 'processing-success-rate') navigate('/analysis');
+              if (metric.id === 'comparisons') navigate('/comparisons');
             }}
           />
         ))}
       </div>
 
-      {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {metrics.slice(4).map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
-        ))}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Security Overview */}
-        <div className="lg:col-span-2">
-          <SecurityOverview 
-            distribution={severityDistribution}
-            timeRange={timeRange}
-          />
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <QuickActions />
-        </div>
-      </div>
-
-      {/* Activity and Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
-        <RecentActivity activities={recentActivity} />
-        
-        {/* Alerts Panel */}
-        <AlertsPanel />
-      </div>
-
-      {/* Trend Analysis */}
+      {/* Daily Severity Chart */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Analysis Trends
-          </h3>
-          <TrendChart 
-            data={analyses}
-            timeRange={timeRange}
-            height={300}
-          />
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Items per Day by Severity</h3>
+          <div className="h-80">
+            {dailySeverityData.length > 0 ? (
+              <div className="space-y-4">
+                {/* Legend */}
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Showing last {timeRange === '24h' ? '24 hours' : timeRange === '7d' ? '7 days' : '30 days'}</span>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span>Critical</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                      <span>High</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                      <span>Medium</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <span>Low</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Stacked Bar Chart */}
+                <div className="relative">
+                  {/* Y-axis labels */}
+                  <div className="flex items-end space-x-2 h-48">
+                    {dailySeverityData.map((day, index) => {
+                      const dayTotal = day.critical + day.high + day.medium + day.low;
+                      const maxValue = Math.max(...dailySeverityData.map(d => d.critical + d.high + d.medium + d.low), 1);
+                      
+                      return (
+                        <div key={day.date} className="flex-1 flex flex-col items-center">
+                          {/* Stacked Bar */}
+                          <div className="w-full flex flex-col-reverse bg-gray-100 rounded-t-md min-h-[20px]" style={{ height: '180px' }}>
+                            {day.low > 0 && (
+                              <div 
+                                className="bg-green-500 w-full rounded-b-md"
+                                style={{ height: `${(day.low / maxValue) * 100}%` }}
+                                title={`Low: ${day.low}`}
+                              ></div>
+                            )}
+                            {day.medium > 0 && (
+                              <div 
+                                className="bg-yellow-500 w-full"
+                                style={{ height: `${(day.medium / maxValue) * 100}%` }}
+                                title={`Medium: ${day.medium}`}
+                              ></div>
+                            )}
+                            {day.high > 0 && (
+                              <div 
+                                className="bg-orange-500 w-full"
+                                style={{ height: `${(day.high / maxValue) * 100}%` }}
+                                title={`High: ${day.high}`}
+                              ></div>
+                            )}
+                            {day.critical > 0 && (
+                              <div 
+                                className="bg-red-500 w-full rounded-t-md"
+                                style={{ height: `${(day.critical / maxValue) * 100}%` }}
+                                title={`Critical: ${day.critical}`}
+                              ></div>
+                            )}
+                          </div>
+                          
+                          {/* Total count */}
+                          <div className="text-xs font-medium text-gray-700 mt-1">
+                            {dayTotal > 0 ? dayTotal : ''}
+                          </div>
+                          
+                          {/* Date label */}
+                          <div className="text-xs text-gray-600 mt-1">
+                            {new Date(day.date).toLocaleDateString(undefined, { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Summary Stats */}
+                <div className="grid grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-red-600">
+                      {dailySeverityData.reduce((sum, day) => sum + day.critical, 0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Critical</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-orange-600">
+                      {dailySeverityData.reduce((sum, day) => sum + day.high, 0)}
+                    </div>
+                    <div className="text-xs text-gray-600">High</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-yellow-600">
+                      {dailySeverityData.reduce((sum, day) => sum + day.medium, 0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Medium</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-green-600">
+                      {dailySeverityData.reduce((sum, day) => sum + day.low, 0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Low</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No data available for the selected time range
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Activity */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Recent Activity */}
+        <RecentActivity activities={recentActivity} />
       </div>
     </div>
   );

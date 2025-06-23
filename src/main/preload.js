@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncOTThreatIntel: (provider) => ipcRenderer.invoke('sync-ot-threat-intel', provider),
   updateOTThreatIntelEntry: (entry) => ipcRenderer.invoke('update-ot-threat-intel-entry', entry),
   clearOTThreatIntel: () => ipcRenderer.invoke('clear-ot-threat-intel'),
+  clearAllData: () => ipcRenderer.invoke('clear-all-data'),
   bulkOTThreatIntel: () => ipcRenderer.invoke('bulk-ot-threat-intel'),
   listAnalyses: () => ipcRenderer.invoke('list-analyses'),
   listBaselines: () => ipcRenderer.invoke('list-baselines'),
@@ -54,6 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveComparisonResult: (payload) => ipcRenderer.invoke('save-comparison-result', payload),
   deleteComparisonResult: (comparisonId) => ipcRenderer.invoke('delete-comparison-result', comparisonId),
   getLLMLogs: () => ipcRenderer.invoke('get-llm-logs'),
+  clearLLMLog: () => ipcRenderer.invoke('clear-llm-log'),
   deleteBaseline: (baselineId) => ipcRenderer.invoke('delete-baseline', baselineId),
   
   // === Missing Handler Exposures ===
