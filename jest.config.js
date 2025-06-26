@@ -10,5 +10,8 @@ module.exports = {
   testEnvironment: "jsdom",
   moduleNameMapper: {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy"
-  }
+  },
+  transformIgnorePatterns: [
+    "/node_modules/(?!react-markdown|remark-parse|vfile|unified|bail|is-plain-obj|trough|mdast-util-from-markdown|mdast-util-to-string|micromark|micromark-extension-\w+)/"
+  ]
 };
