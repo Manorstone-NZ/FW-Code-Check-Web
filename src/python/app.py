@@ -45,8 +45,8 @@ def health():
 def db_health():
     print("[DEBUG] /api/db-health called", file=sys.stderr)
     try:
-        from .db import get_db_connection
-        conn = get_db_connection()
+        from .db import get_connection
+        conn = get_connection()
         cur = conn.cursor()
         cur.execute("SELECT 1;")
         cur.fetchone()
