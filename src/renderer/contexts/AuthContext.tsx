@@ -99,38 +99,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      // Authenticate user
-      const authResult = await window.electronAPI.authenticateUser(username, password);
-      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const authResult = await response.json();
       if (!authResult.success) {
         dispatch({ type: 'SET_ERROR', payload: authResult.error || 'Authentication failed' });
         return { success: false, error: authResult.error };
       }
-
-      // Create session
-      const sessionResult = await window.electronAPI.createSession(authResult.user!.id);
-      
-      if (!sessionResult.success) {
-        dispatch({ type: 'SET_ERROR', payload: sessionResult.error || 'Session creation failed' });
-        return { success: false, error: sessionResult.error };
-      }
-
-      // Store session token
-      const sessionToken = sessionResult.session!.token;
+      const sessionToken = authResult.sessionToken;
       localStorage.setItem('session_token', sessionToken);
-
-      // Update state
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: {
-          user: authResult.user!,
+          user: authResult.user,
           sessionToken,
         },
       });
-
-      logger.info('User logged in successfully', { username: authResult.user!.username });
+      logger.info('User logged in successfully', { username: authResult.user.username });
       return { success: true };
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -142,19 +131,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (username: string, email: string, password: string, role = 'user'): Promise<{ success: boolean; error?: string }> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
-
     try {
-      const result = await window.electronAPI.registerUser(username, email, password, role);
-      
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, role })
+      });
+      const result = await response.json();
       if (!result.success) {
         dispatch({ type: 'SET_ERROR', payload: result.error || 'Registration failed' });
         return { success: false, error: result.error };
       }
-
       dispatch({ type: 'SET_LOADING', payload: false });
       logger.info('User registered successfully', { username });
       return { success: true };
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -165,20 +155,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const validateSession = async (): Promise<boolean> => {
     const sessionToken = localStorage.getItem('session_token');
-    
     if (!sessionToken) {
       dispatch({ type: 'SET_LOADING', payload: false });
       return false;
     }
-
     try {
-      const result = await window.electronAPI.validateSession(sessionToken);
-      
+      const response = await fetch('/api/auth/validate-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionToken })
+      });
+      const result = await response.json();
       if (result.success && result.user) {
         dispatch({ type: 'SESSION_VALIDATED', payload: result.user });
         return true;
       } else {
-        // Invalid session, remove token
         localStorage.removeItem('session_token');
         dispatch({ type: 'LOGOUT' });
         return false;
@@ -193,15 +184,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async (): Promise<void> => {
     const sessionToken = localStorage.getItem('session_token');
-    
     if (sessionToken) {
       try {
-        await window.electronAPI.logoutSession(sessionToken);
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionToken })
+        });
       } catch (error) {
         logger.error('Logout error', error);
       }
     }
-
     localStorage.removeItem('session_token');
     dispatch({ type: 'LOGOUT' });
     logger.info('User logged out');

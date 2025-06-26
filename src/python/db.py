@@ -1,5 +1,5 @@
 import os
-import sqlite3
+import psycopg2
 import json
 from datetime import datetime, timedelta
 import sys
@@ -7,10 +7,12 @@ import hashlib
 import secrets
 import bcrypt
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '../../firstwatch.db')
+# Load database URL from environment variable
+DB_URL = os.getenv('NEON_DATABASE_URL')
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    """Get a new database connection"""
+    return psycopg2.connect(DB_URL)
 
 def init_db():
     with get_connection() as conn:
@@ -19,38 +21,38 @@ def init_db():
         # Users table for authentication
         c.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 username TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 salt TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                last_login TEXT,
-                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_login TIMESTAMPTZ,
+                is_active BOOLEAN DEFAULT TRUE,
                 role TEXT DEFAULT 'user',
                 failed_login_attempts INTEGER DEFAULT 0,
-                locked_until TEXT
+                locked_until TIMESTAMPTZ
             )
         ''')
         
         # Sessions table for session management
         c.execute('''
             CREATE TABLE IF NOT EXISTS user_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
                 session_token TEXT UNIQUE NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
         
         c.execute('''
             CREATE TABLE IF NOT EXISTS analyses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 fileName TEXT,
-                date TEXT,
+                date TIMESTAMPTZ,
                 status TEXT,
                 analysis_json TEXT,
                 filePath TEXT,
@@ -71,10 +73,10 @@ def init_db():
         # Add analysis_json to baselines if not present
         c.execute('''
             CREATE TABLE IF NOT EXISTS baselines (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 fileName TEXT,
                 originalName TEXT,
-                date TEXT,
+                date TIMESTAMPTZ,
                 filePath TEXT,
                 analysis_json TEXT,
                 analysis_hash TEXT,
@@ -106,10 +108,10 @@ def init_db():
             pass  # Already exists
         c.execute('''
             CREATE TABLE IF NOT EXISTS comparison_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 analysisId INTEGER,
                 baselineId INTEGER,
-                timestamp TEXT,
+                timestamp TIMESTAMPTZ,
                 llm_prompt TEXT,
                 llm_result TEXT,
                 FOREIGN KEY(analysisId) REFERENCES analyses(id),
@@ -156,8 +158,8 @@ def init_db():
         ''')
         c.execute('''
             CREATE TABLE IF NOT EXISTS audit_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 action TEXT,
                 user TEXT,
                 details TEXT
@@ -190,7 +192,7 @@ def create_user(username: str, email: str, password: str, role: str = 'user') ->
         c = conn.cursor()
         
         # Check if username or email already exists
-        c.execute('SELECT id FROM users WHERE username = ? OR email = ?', (username, email))
+        c.execute('SELECT id FROM users WHERE username = %s OR email = %s', (username, email))
         if c.fetchone():
             return {'success': False, 'error': 'Username or email already exists'}
         
@@ -201,7 +203,7 @@ def create_user(username: str, email: str, password: str, role: str = 'user') ->
         try:
             c.execute('''
                 INSERT INTO users (username, email, password_hash, salt, created_at, role)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             ''', (username, email, password_hash, salt, datetime.now().isoformat(), role))
             user_id = c.lastrowid
             conn.commit()
@@ -227,7 +229,7 @@ def authenticate_user(username: str, password: str) -> dict:
         # Get user by username or email
         c.execute('''
             SELECT id, username, email, password_hash, role, is_active, failed_login_attempts, locked_until
-            FROM users WHERE (username = ? OR email = ?) AND is_active = 1
+            FROM users WHERE (username = %s OR email = %s) AND is_active = TRUE
         ''', (username, username))
         
         user = c.fetchone()
@@ -253,8 +255,8 @@ def authenticate_user(username: str, password: str) -> dict:
                 lock_until = (datetime.now() + timedelta(minutes=30)).isoformat()
             
             c.execute('''
-                UPDATE users SET failed_login_attempts = ?, locked_until = ?
-                WHERE id = ?
+                UPDATE users SET failed_login_attempts = %s, locked_until = %s
+                WHERE id = %s
             ''', (failed_attempts, lock_until, user_id))
             conn.commit()
             
@@ -262,8 +264,8 @@ def authenticate_user(username: str, password: str) -> dict:
         
         # Reset failed attempts and update last login
         c.execute('''
-            UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = ?
-            WHERE id = ?
+            UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = %s
+            WHERE id = %s
         ''', (datetime.now().isoformat(), user_id))
         conn.commit()
         
@@ -284,7 +286,7 @@ def get_user_by_username(username: str) -> dict:
         
         c.execute('''
             SELECT id, username, email, role, is_active, created_at, last_login
-            FROM users WHERE username = ?
+            FROM users WHERE username = %s
         ''', (username,))
         
         user = c.fetchone()
@@ -315,7 +317,7 @@ def create_session(user_id: int) -> dict:
         
         c.execute('''
             INSERT INTO user_sessions (user_id, session_token, created_at, expires_at, is_active)
-            VALUES (?, ?, ?, ?, 1)
+            VALUES (%s, %s, %s, %s, TRUE)
         ''', (user_id, session_token, created_at.isoformat(), expires_at.isoformat()))
         
         session_id = c.lastrowid
@@ -339,7 +341,7 @@ def validate_session(session_token: str) -> dict:
             SELECT s.id, s.user_id, s.expires_at, u.username, u.email, u.role
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.session_token = ? AND s.is_active = 1 AND u.is_active = 1
+            WHERE s.session_token = %s AND s.is_active = TRUE AND u.is_active = TRUE
         ''', (session_token,))
         
         session = c.fetchone()
@@ -351,7 +353,7 @@ def validate_session(session_token: str) -> dict:
         # Check if session is expired
         if datetime.now() > datetime.fromisoformat(expires_at):
             # Deactivate expired session
-            c.execute('UPDATE user_sessions SET is_active = 0 WHERE id = ?', (session_id,))
+            c.execute('UPDATE user_sessions SET is_active = FALSE WHERE id = %s', (session_id,))
             conn.commit()
             return {'success': False, 'error': 'Session expired'}
         
@@ -370,7 +372,7 @@ def logout_session(session_token: str) -> dict:
     with get_connection() as conn:
         c = conn.cursor()
         
-        c.execute('UPDATE user_sessions SET is_active = 0 WHERE session_token = ?', (session_token,))
+        c.execute('UPDATE user_sessions SET is_active = FALSE WHERE session_token = %s', (session_token,))
         conn.commit()
         
         return {'success': True}
@@ -380,7 +382,7 @@ def cleanup_expired_sessions():
     with get_connection() as conn:
         c = conn.cursor()
         
-        c.execute('UPDATE user_sessions SET is_active = 0 WHERE expires_at < ?', (datetime.now().isoformat(),))
+        c.execute('UPDATE user_sessions SET is_active = FALSE WHERE expires_at < %s', (datetime.now().isoformat(),))
         conn.commit()
 
 def list_users() -> dict:
@@ -421,16 +423,16 @@ def delete_user(user_id: int) -> dict:
             c = conn.cursor()
             
             # Check if user exists
-            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            c.execute('SELECT username FROM users WHERE id = %s', (user_id,))
             user = c.fetchone()
             if not user:
                 return {'success': False, 'error': 'User not found'}
             
             # Delete user sessions first
-            c.execute('DELETE FROM user_sessions WHERE user_id = ?', (user_id,))
+            c.execute('DELETE FROM user_sessions WHERE user_id = %s', (user_id,))
             
             # Delete user
-            c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            c.execute('DELETE FROM users WHERE id = %s', (user_id,))
             conn.commit()
             
             return {'success': True, 'message': f'User {user[0]} deleted successfully'}
@@ -444,17 +446,17 @@ def toggle_user_status(user_id: int, is_active: bool) -> dict:
             c = conn.cursor()
             
             # Check if user exists
-            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            c.execute('SELECT username FROM users WHERE id = %s', (user_id,))
             user = c.fetchone()
             if not user:
                 return {'success': False, 'error': 'User not found'}
             
             # Update user status
-            c.execute('UPDATE users SET is_active = ? WHERE id = ?', (is_active, user_id))
+            c.execute('UPDATE users SET is_active = %s WHERE id = %s', (is_active, user_id))
             
             # If deactivating, also deactivate all sessions
             if not is_active:
-                c.execute('UPDATE user_sessions SET is_active = 0 WHERE user_id = ?', (user_id,))
+                c.execute('UPDATE user_sessions SET is_active = FALSE WHERE user_id = %s', (user_id,))
             
             conn.commit()
             
@@ -475,7 +477,7 @@ def reset_user_password(user_id: int, new_password: str) -> dict:
             c = conn.cursor()
             
             # Check if user exists
-            c.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            c.execute('SELECT username FROM users WHERE id = %s', (user_id,))
             user = c.fetchone()
             if not user:
                 return {'success': False, 'error': 'User not found'}
@@ -483,12 +485,12 @@ def reset_user_password(user_id: int, new_password: str) -> dict:
             # Update password and reset failed attempts
             c.execute('''
                 UPDATE users 
-                SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL
-                WHERE id = ?
+                SET password_hash = %s, failed_login_attempts = 0, locked_until = NULL
+                WHERE id = %s
             ''', (password_hash, user_id))
             
             # Deactivate all existing sessions to force re-login
-            c.execute('UPDATE user_sessions SET is_active = 0 WHERE user_id = ?', (user_id,))
+            c.execute('UPDATE user_sessions SET is_active = FALSE WHERE user_id = %s', (user_id,))
             
             conn.commit()
             
@@ -503,12 +505,12 @@ def save_analysis(file_name, status, analysis_json, file_path=None, provider=Non
         c = conn.cursor()
         analysis_hash = get_analysis_hash(analysis_json)
         # Uniqueness check: do not insert if an analysis with the same fileName, filePath, and hash exists
-        c.execute('''SELECT id FROM analyses WHERE fileName = ? AND (filePath = ? OR (? IS NULL AND filePath IS NULL)) AND analysis_hash = ?''', (file_name, file_path, file_path, analysis_hash))
+        c.execute('''SELECT id FROM analyses WHERE fileName = %s AND (filePath = %s OR (%s IS NULL AND filePath IS NULL)) AND analysis_hash = %s''', (file_name, file_path, file_path, analysis_hash))
         if c.fetchone():
             return None  # Already exists, do not insert duplicate
         c.execute('''
             INSERT INTO analyses (fileName, date, status, analysis_json, filePath, analysis_hash, provider, model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (file_name, datetime.now().isoformat(), status, json.dumps(analysis_json), file_path, analysis_hash, provider, model))
         conn.commit()
         return c.lastrowid
@@ -516,7 +518,7 @@ def save_analysis(file_name, status, analysis_json, file_path=None, provider=Non
 def get_analysis(analysis_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM analyses WHERE id = ?', (analysis_id,))
+        c.execute('SELECT * FROM analyses WHERE id = %s', (analysis_id,))
         row = c.fetchone()
         if row:
             try:
@@ -591,12 +593,12 @@ def save_baseline(file_name, original_name=None, file_path=None, analysis_json=N
         c = conn.cursor()
         analysis_hash = get_analysis_hash(analysis_json)
         # Uniqueness check: do not insert if a baseline with the same fileName, filePath, and hash exists
-        c.execute('''SELECT id FROM baselines WHERE fileName = ? AND (filePath = ? OR (? IS NULL AND filePath IS NULL)) AND analysis_hash = ?''', (file_name, file_path, file_path, analysis_hash))
+        c.execute('''SELECT id FROM baselines WHERE fileName = %s AND (filePath = %s OR (%s IS NULL AND filePath IS NULL)) AND analysis_hash = %s''', (file_name, file_path, file_path, analysis_hash))
         if c.fetchone():
             return None  # Already exists, do not insert duplicate
         c.execute('''
             INSERT INTO baselines (fileName, originalName, date, filePath, analysis_json, analysis_hash, provider, model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (file_name, original_name or file_name, datetime.now().isoformat(), file_path, json.dumps(analysis_json) if analysis_json else None, analysis_hash, provider, model))
         conn.commit()
         return c.lastrowid
@@ -604,7 +606,7 @@ def save_baseline(file_name, original_name=None, file_path=None, analysis_json=N
 def get_baseline(baseline_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM baselines WHERE id = ?', (baseline_id,))
+        c.execute('SELECT * FROM baselines WHERE id = %s', (baseline_id,))
         row = c.fetchone()
         if row:
             analysis_json = None
@@ -644,13 +646,13 @@ def list_baselines():
 def delete_baseline(baseline_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('DELETE FROM baselines WHERE id = ?', (baseline_id,))
+        c.execute('DELETE FROM baselines WHERE id = %s', (baseline_id,))
         conn.commit()
 
 def delete_analysis(analysis_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('DELETE FROM analyses WHERE id = ?', (analysis_id,))
+        c.execute('DELETE FROM analyses WHERE id = %s', (analysis_id,))
         conn.commit()
         return {'ok': True, 'deleted_id': analysis_id}
 
@@ -659,7 +661,7 @@ def save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result, an
         c = conn.cursor()
         c.execute('''
             INSERT INTO comparison_history (analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (analysis_id, baseline_id, datetime.now().isoformat(), llm_prompt, llm_result, analysis_file_name, baseline_file_name, provider, model))
         conn.commit()
         return c.lastrowid
@@ -670,13 +672,13 @@ def list_comparison_history(analysis_id=None, baseline_id=None):
         query = 'SELECT id, analysisId, baselineId, timestamp, llm_prompt, llm_result, analysisFileName, baselineFileName, provider, model FROM comparison_history'
         params = []
         if analysis_id and baseline_id:
-            query += ' WHERE analysisId = ? AND baselineId = ?'
+            query += ' WHERE analysisId = %s AND baselineId = %s'
             params = [analysis_id, baseline_id]
         elif analysis_id:
-            query += ' WHERE analysisId = ?'
+            query += ' WHERE analysisId = %s'
             params = [analysis_id]
         elif baseline_id:
-            query += ' WHERE baselineId = ?'
+            query += ' WHERE baselineId = %s'
             params = [baseline_id]
         query += ' ORDER BY timestamp DESC'
         return [
@@ -698,7 +700,7 @@ def list_comparison_history(analysis_id=None, baseline_id=None):
 def delete_comparison_history(comparison_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('DELETE FROM comparison_history WHERE id = ?', (comparison_id,))
+        c.execute('DELETE FROM comparison_history WHERE id = %s', (comparison_id,))
         conn.commit()
         return {'ok': True, 'deleted_id': comparison_id}
 
@@ -706,7 +708,7 @@ def save_ot_threat_intel(entry):
     with get_connection() as conn:
         c = conn.cursor()
         # Prevent duplicate: unique on (title, summary, source, threat_type, severity, affected_vendors, industrial_protocols, system_targets, tags)
-        c.execute('''SELECT id FROM ot_threat_intel WHERE title = ? AND summary = ? AND source = ? AND threat_type = ? AND severity = ? AND affected_vendors = ? AND industrial_protocols = ? AND system_targets = ? AND tags = ?''', (
+        c.execute('''SELECT id FROM ot_threat_intel WHERE title = %s AND summary = %s AND source = %s AND threat_type = %s AND severity = %s AND affected_vendors = %s AND industrial_protocols = %s AND system_targets = %s AND tags = %s''', (
             entry['title'], entry['summary'], entry['source'], entry.get('threat_type'), entry.get('severity'),
             json.dumps(entry.get('affected_vendors', [])), json.dumps(entry.get('industrial_protocols', [])),
             json.dumps(entry.get('system_targets', [])), json.dumps(entry.get('tags', []))
@@ -715,7 +717,7 @@ def save_ot_threat_intel(entry):
             return None
         c.execute('''
             INSERT INTO ot_threat_intel (id, title, summary, source, retrieved_at, affected_vendors, threat_type, severity, industrial_protocols, system_targets, tags, created_at, updated_at, site_relevance, response_notes, llm_response)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (
             entry['id'], entry['title'], entry['summary'], entry['source'], entry['retrieved_at'],
             json.dumps(entry.get('affected_vendors', [])), entry.get('threat_type'), entry.get('severity'),
@@ -764,7 +766,7 @@ def log_audit(action, user, details=None):
         c = conn.cursor()
         c.execute('''
             INSERT INTO audit_log (timestamp, action, user, details)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         ''', (datetime.now().isoformat(), action, user, json.dumps(details) if details else None))
         conn.commit()
 
@@ -773,11 +775,11 @@ def update_ot_threat_intel(entry):
         c = conn.cursor()
         c.execute('''
             UPDATE ot_threat_intel SET
-                tags = ?,
-                site_relevance = ?,
-                response_notes = ?,
-                updated_at = ?
-            WHERE id = ?
+                tags = %s,
+                site_relevance = %s,
+                response_notes = %s,
+                updated_at = %s
+            WHERE id = %s
         ''', (
             json.dumps(entry.get('tags', [])),
             entry.get('site_relevance'),
@@ -1038,7 +1040,7 @@ def main():
         return
     
     init_db()
-    print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_PATH}'}))
+    print(json.dumps({'ok': True, 'message': f'Database initialized at {DB_URL}'}))
 
 # Add function aliases for compatibility
 init_database = init_db

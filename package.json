@@ -2,23 +2,19 @@
   "name": "first-watch-plc-code-checker-v2",
   "version": "1.0.0",
   "description": "A standalone desktop application for analyzing Rockwell Automation PLC files to identify security risks.",
-  "main": "src/main/electron.js",
   "scripts": {
-    "start": "electron .",
     "build": "webpack --mode production",
     "dev": "webpack serve --config webpack.config.js --mode development",
     "test": "jest --config jest.config.js --passWithNoTests"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "electron": "^25.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.2",
     "scheduler": "^0.26.0",
-    "sqlite3": "^5.1.7",
     "tailwindcss": "^3.0.0",
     "xml2js": "^0.6.2"
   },
@@ -46,7 +42,6 @@
     "PLC",
     "security",
     "analysis",
-    "Electron",
     "React"
   ],
   "author": "First Watch Security Research",

@@ -56,7 +56,7 @@ export const PRODUCTION_SECURITY_CONFIG: SecurityConfig = {
     scanForMalware: true,
   },
   api: {
-    corsEnabled: false, // Disable CORS in Electron app
+    corsEnabled: false,
     allowedOrigins: [],
     validateHeaders: true,
   },

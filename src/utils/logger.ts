@@ -145,10 +145,8 @@ class Logger {
       // In a real application, send to monitoring service like Sentry, LogRocket, etc.
       // await monitoringService.captureException(entry);
       
-      // For now, just store in Electron's main process
-      if (typeof window !== 'undefined' && (window as any).electron) {
-        (window as any).electron.invoke('log-error', entry);
-      }
+      // For now, just log to console
+      console.error('Log sent to monitoring service:', entry);
     } catch (error) {
       // Fallback to console if monitoring service fails
       console.error('Failed to send log to monitoring service:', error);
@@ -160,10 +158,8 @@ class Logger {
 
     try {
       // In a real application, write to file or send to log aggregation service
-      if (typeof window !== 'undefined' && (window as any).electron) {
-        await (window as any).electron.invoke('flush-logs', [...this.logBuffer]);
-        this.logBuffer = [];
-      }
+      console.log('Flushing logs:', this.logBuffer);
+      this.logBuffer = [];
     } catch (error) {
       console.error('Failed to flush logs:', error);
     }

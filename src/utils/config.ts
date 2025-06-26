@@ -174,17 +174,6 @@ class ConfigManager {
       console.warn('Failed to load user configuration:', error);
     }
 
-    // Load environment variables (Electron context)
-    if (typeof window !== 'undefined' && (window as any).electron) {
-      try {
-        // In a real app, you might load config from Electron's main process
-        // const envConfig = await window.electron.invoke('get-config');
-        // config = this.mergeConfigs(config, envConfig);
-      } catch (error) {
-        console.warn('Failed to load environment configuration:', error);
-      }
-    }
-
     return config;
   }
 

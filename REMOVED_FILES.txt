@@ -1,2 +1,0 @@
-src/renderer/pages/LLMLogPage.tsx
-src/renderer/__tests__/LLMLogPage.test.tsx
