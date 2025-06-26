@@ -8,57 +8,9 @@ import { render, RenderOptions } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
 
-// Mock Electron API
-const mockElectronAPI = {
-  // Authentication
-  authenticateUser: jest.fn(),
-  registerUser: jest.fn(),
-  createSession: jest.fn(),
-  validateSession: jest.fn(),
-  logoutSession: jest.fn(),
-
-  // File operations
-  uploadFile: jest.fn(),
-  analyzeFile: jest.fn(),
-
-  // Baseline management
-  saveBaseline: jest.fn(),
-  getBaselines: jest.fn(),
-  deleteBaseline: jest.fn(),
-
-  // Analysis management
-  getAnalyses: jest.fn(),
-  getAnalysis: jest.fn(),
-  compareAnalyses: jest.fn(),
-
-  // User management
-  getUserList: jest.fn(),
-  createUser: jest.fn(),
-  deleteUser: jest.fn(),
-
-  // OT Threat Intelligence
-  syncOTThreatIntel: jest.fn(),
-  getOTThreatIntel: jest.fn(),
-
-  // LLM and logs
-  getLLMLog: jest.fn(),
-
-  // Git operations
-  commitChanges: jest.fn(),
-  pushChanges: jest.fn(),
-  pullChanges: jest.fn(),
-  getGitStatus: jest.fn(),
-
-  // System operations
-  openFile: jest.fn(),
-  saveFile: jest.fn(),
-  showOpenDialog: jest.fn(),
-  showSaveDialog: jest.fn(),
-};
-
 // Mock window.electronAPI
 Object.defineProperty(window, 'electronAPI', {
-  value: mockElectronAPI,
+  value: {},
   writable: true,
 });
 
@@ -140,10 +92,6 @@ export const renderWithProviders = (
 
   // Mock initial auth state if user provided
   if (user) {
-    mockElectronAPI.validateSession.mockResolvedValue({
-      success: true,
-      user,
-    });
     localStorageMock.setItem('session_token', 'test-token');
   }
 
@@ -166,79 +114,6 @@ export const setupSuccessfulMocks = () => {
   const mockAnalysis = createMockAnalysis();
   const mockBaseline = createMockBaseline();
   const mockSession = createMockSession();
-
-  mockElectronAPI.authenticateUser.mockResolvedValue({
-    success: true,
-    user: mockUser,
-  });
-
-  mockElectronAPI.registerUser.mockResolvedValue({
-    success: true,
-    user: mockUser,
-  });
-
-  mockElectronAPI.createSession.mockResolvedValue({
-    success: true,
-    session: mockSession,
-  });
-
-  mockElectronAPI.validateSession.mockResolvedValue({
-    success: true,
-    user: mockUser,
-  });
-
-  mockElectronAPI.logoutSession.mockResolvedValue({
-    success: true,
-  });
-
-  mockElectronAPI.uploadFile.mockResolvedValue({
-    success: true,
-    fileId: 1,
-  });
-
-  mockElectronAPI.analyzeFile.mockResolvedValue({
-    success: true,
-    analysis: mockAnalysis,
-  });
-
-  mockElectronAPI.saveBaseline.mockResolvedValue({
-    success: true,
-    baseline: mockBaseline,
-  });
-
-  mockElectronAPI.getBaselines.mockResolvedValue({
-    success: true,
-    baselines: [mockBaseline],
-  });
-
-  mockElectronAPI.deleteBaseline.mockResolvedValue({
-    success: true,
-  });
-
-  mockElectronAPI.getAnalyses.mockResolvedValue({
-    success: true,
-    analyses: [mockAnalysis],
-  });
-
-  mockElectronAPI.getAnalysis.mockResolvedValue({
-    success: true,
-    analysis: mockAnalysis,
-  });
-
-  mockElectronAPI.getUserList.mockResolvedValue({
-    success: true,
-    users: [mockUser],
-  });
-
-  mockElectronAPI.getLLMLog.mockResolvedValue({
-    success: true,
-    logs: [],
-  });
-
-  mockElectronAPI.getOTThreatIntel.mockResolvedValue({
-    success: true,
-    data: [],
-  });
 
   return {
     mockUser,
