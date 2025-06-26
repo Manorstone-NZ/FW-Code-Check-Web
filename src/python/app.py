@@ -63,14 +63,20 @@ def api_login():
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
+    print(f"[DEBUG] Login attempt: username={username}, password={'*' * len(password) if password else None}", file=sys.stderr)
     if not username or not password:
+        print("[DEBUG] Missing username or password", file=sys.stderr)
         return jsonify({"success": False, "error": "Missing username or password"}), 400
     auth_result = authenticate_user(username, password)
+    print(f"[DEBUG] Auth result: {auth_result}", file=sys.stderr)
     if not auth_result.get("success"):
+        print(f"[DEBUG] Auth failed: {auth_result.get('error')}", file=sys.stderr)
         return jsonify({"success": False, "error": auth_result.get("error", "Authentication failed")}), 401
     user = auth_result["user"]
     session_result = create_session(user["id"])
+    print(f"[DEBUG] Session result: {session_result}", file=sys.stderr)
     if not session_result.get("success"):
+        print("[DEBUG] Session creation failed", file=sys.stderr)
         return jsonify({"success": False, "error": "Session creation failed"}), 500
     return jsonify({
         "success": True,
