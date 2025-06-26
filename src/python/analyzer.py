@@ -6,6 +6,8 @@ import json
 import requests
 sys.path.append(os.path.dirname(__file__))
 
+print("[DEBUG] analyzer.py loaded", file=sys.stderr)
+
 # --- OPENAI KEY LOADING LOGIC ---
 def load_openai_key():
     key_path = os.path.join(os.path.dirname(__file__), '../../openai.key')

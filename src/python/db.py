@@ -1,3 +1,6 @@
+import sys
+print("[DEBUG] db.py loaded", file=sys.stderr)
+
 import os
 import psycopg2
 import json
