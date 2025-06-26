@@ -4,10 +4,10 @@ import '@testing-library/jest-dom';
 import App from '../App';
 
 describe('App', () => {
-  test('renders error boundary on double Router', () => {
+  test('renders login page', () => {
     render(<App />);
     expect(
-      screen.getByText(/Something went wrong/i)
+      screen.getByText(/Secure PLC Code Analysis Platform/i)
     ).toBeInTheDocument();
   });
 });
