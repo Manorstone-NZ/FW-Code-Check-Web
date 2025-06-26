@@ -112,5 +112,9 @@ def api_logout():
     result = logout_session(session_token)
     return jsonify(result)
 
+@app.route("/", methods=["GET"])
+def index():
+    return "API is running", 200
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
