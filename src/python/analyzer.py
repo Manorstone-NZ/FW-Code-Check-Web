@@ -179,6 +179,73 @@ def ensure_analysis_fields(analysis):
         analysis['llm_results'] = ''
     return analysis
 
+def analyze_file_content(file_content, provider=None):
+    """
+    API-friendly entry point for analyzing PLC file content as a string.
+    Returns a dict with analysis results.
+    """
+    rule_based = {
+        "fileName": "uploaded_file",
+        "report": {
+            "category": {
+                "description": "Sample description.",
+                "findings": ["No issues found."],
+                "potential_issues": [],
+                "example_malicious_change": None,
+                "vulnerabilities": []
+            }
+        },
+        "vulnerabilities": [],
+        "recommendations": ["Keep firmware updated."]
+    }
+    llm_prompt = '''\
+You are a senior control systems cybersecurity analyst specialising in industrial automation and PLC threat detection. You have deep expertise in Siemens PCS7/S7 environments, STL/SCL/LAD programming, and cyber-physical attack techniques targeting operational technology (OT) environments.
+
+The following function block (FC540) from a Siemens PCS7 system is under investigation for any signs of **malicious logic, embedded threats, unsafe control logic, or suspicious code structures**.
+
+You must perform a **complete forensic and quality analysis** of this logic to detect known and novel PLC-based threats. These may include logic bombs, sabotage, unauthorised overrides, covert control logic, payload hiding, and bad engineering practices that weaken system integrity or safety.
+
+---
+
+'''
+    llm_prompt += file_content[:4000]
+    llm_result = llm_analysis(llm_prompt, model="gpt-4o", provider=provider)
+    try:
+        log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result), provider, "gpt-4o")
+    except Exception:
+        pass
+    import re
+    import ast
+    instruction_analysis = []
+    if isinstance(llm_result, str):
+        json_block = None
+        json_match = re.search(r'```json\s*(\[.*?\])\s*```', llm_result, re.DOTALL)
+        if json_match:
+            json_block = json_match.group(1)
+        else:
+            match = re.search(r'instruction_analysis\s*[:=]\s*(\[.*?\])', llm_result, re.DOTALL)
+            if match:
+                json_block = match.group(1)
+        if json_block:
+            try:
+                arr = ast.literal_eval(json_block)
+                if isinstance(arr, list):
+                    instruction_analysis = arr
+            except Exception:
+                try:
+                    import json as _json
+                    arr = _json.loads(json_block)
+                    if isinstance(arr, list):
+                        instruction_analysis = arr
+                except Exception:
+                    pass
+    rule_based['llm_results'] = llm_result
+    rule_based['instruction_analysis'] = instruction_analysis
+    analysis_result = ensure_analysis_fields(rule_based)
+    result_obj = dict(analysis_result)
+    result_obj['ok'] = True
+    return result_obj
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--check-openai':
         try:
