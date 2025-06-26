@@ -1,3 +1,5 @@
+# --- API entry point for Flask ---
+
 import os
 import sys
 import json
