@@ -6,6 +6,7 @@ import json
 import logging
 import traceback
 from .analyzer import analyze_file_content
+from .db import authenticate_user, create_user, create_session, validate_session, logout_session
 
 print("[DEBUG] Flask app.py loaded", file=sys.stderr)
 
@@ -56,6 +57,60 @@ def db_health():
     except Exception as e:
         log_exception(e)
         return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        return jsonify({"success": False, "error": "Missing username or password"}), 400
+    auth_result = authenticate_user(username, password)
+    if not auth_result.get("success"):
+        return jsonify({"success": False, "error": auth_result.get("error", "Authentication failed")}), 401
+    user = auth_result["user"]
+    session_result = create_session(user["id"])
+    if not session_result.get("success"):
+        return jsonify({"success": False, "error": "Session creation failed"}), 500
+    return jsonify({
+        "success": True,
+        "user": user,
+        "sessionToken": session_result["session"]["token"]
+    })
+
+@app.route("/api/auth/register", methods=["POST"])
+def api_register():
+    data = request.get_json()
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    role = data.get("role", "user")
+    if not username or not email or not password:
+        return jsonify({"success": False, "error": "Missing registration fields"}), 400
+    reg_result = create_user(username, email, password, role)
+    if not reg_result.get("success"):
+        return jsonify({"success": False, "error": reg_result.get("error", "Registration failed")}), 400
+    return jsonify({"success": True, "user": reg_result["user"]})
+
+@app.route("/api/auth/validate-session", methods=["POST"])
+def api_validate_session():
+    data = request.get_json()
+    session_token = data.get("sessionToken")
+    if not session_token:
+        return jsonify({"success": False, "error": "Missing session token"}), 400
+    result = validate_session(session_token)
+    if not result.get("success"):
+        return jsonify({"success": False, "error": result.get("error", "Invalid session")}), 401
+    return jsonify({"success": True, "user": result["user"]})
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_logout():
+    data = request.get_json()
+    session_token = data.get("sessionToken")
+    if not session_token:
+        return jsonify({"success": False, "error": "Missing session token"}), 400
+    result = logout_session(session_token)
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
