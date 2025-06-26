@@ -12,6 +12,7 @@ import bcrypt
 
 # Load database URL from environment variable
 DB_URL = os.getenv('NEON_DATABASE_URL')
+print(f"[DEBUG] NEON_DATABASE_URL={DB_URL}", file=sys.stderr)
 
 def get_connection():
     """Get a new database connection"""
