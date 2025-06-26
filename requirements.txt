@@ -13,6 +13,9 @@ gunicorn
 # Git Integration (NEW)
 GitPython==3.1.40
 
+# Password hashing
+bcrypt>=4.0.0
+
 # Optional: Testing dependencies
 pytest==7.4.3
 pytest-mock==3.12.0
