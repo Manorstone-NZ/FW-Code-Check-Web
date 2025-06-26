@@ -5,6 +5,8 @@ import os
 import json
 from .analyzer import analyze_file_content
 
+print("[DEBUG] Flask app.py loaded", file=sys.stderr)
+
 app = Flask(__name__)
 CORS(app)
 
