@@ -3,7 +3,7 @@ from flask_cors import CORS
 import sys
 import os
 import json
-from analyzer import analyze_file_content
+from .analyzer import analyze_file_content
 
 app = Flask(__name__)
 CORS(app)
@@ -28,7 +28,7 @@ def health():
 @app.route("/api/db-health", methods=["GET"])
 def db_health():
     try:
-        from db import get_db_connection
+        from .db import get_db_connection
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT 1;")
