@@ -609,3 +609,5 @@ if __name__ == "__main__":
         "openai_key_start": os.environ.get('OPENAI_API_KEY', '')[:8]
     }) + "\n")
     main()
+
+# --- Force redeploy: 2025-06-26 ---
