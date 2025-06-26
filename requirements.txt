@@ -1,4 +1,5 @@
 # Python dependencies for First Watch PLC Code Checker v2
+# Trigger redeploy: 2025-06-26
 
 # Core dependencies
 openai>=1.0.0
