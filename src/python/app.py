@@ -25,5 +25,19 @@ def analyze():
 def health():
     return jsonify({"ok": True, "status": "healthy"})
 
+@app.route("/api/db-health", methods=["GET"])
+def db_health():
+    try:
+        from db import get_db_connection
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1;")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True, "message": "Database connection successful."})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
