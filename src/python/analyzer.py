@@ -357,25 +357,7 @@ If a section has no content, write "None" under the header. Use markdown formatt
             log_llm_interaction(llm_prompt, llm_result, not (isinstance(llm_result, dict) and 'error' in llm_result), provider, "gpt-4o")
         except Exception:
             pass
-        print(json.dumps({'llm_comparison': llm_result}))
-        # Note: Automatic saving removed to prevent duplicates
         # Comparison results are now saved explicitly by user action via save-comparison-result IPC
-        # from db import save_comparison_history
-        # Try to extract analysisId and baselineId from file names if possible
-        # def extract_id_from_path(path):
-        #     try:
-        #         # Expecting .../analysis_<id>.json or .../baseline_<id>.json
-        #         import re
-        #         m = re.search(r'(?:analysis|baseline)[^0-9]*([0-9]+)', os.path.basename(path))
-        #         return int(m.group(1)) if m else None
-        #     except Exception:
-        #         return None
-        # analysis_id = extract_id_from_path(analysis_path)
-        # baseline_id = extract_id_from_path(baseline_path)
-        # try:
-        #     save_comparison_history(analysis_id, baseline_id, llm_prompt, llm_result)
-        # except Exception as e:
-        #     log_error(f'Failed to save comparison history: {e}')
         return
     # If a file path is provided, read and analyze it
     if len(sys.argv) > 1:

@@ -6,6 +6,8 @@ requests>=2.25.0
 pyyaml>=6.0
 python-dotenv>=0.19.0
 psycopg2-binary>=2.9.0
+Flask
+flask-cors
 
 # Git Integration (NEW)
 GitPython==3.1.40

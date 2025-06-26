@@ -35,9 +35,9 @@ const EnhancedFileUploader = () => {
         setLoading(true);
         setResult(null);
         setError(null);
-        setFilePath(file.path);
+        setFilePath(file.name);
         try {
-            const analysis = await analyzeFileApi(file.path, selectedProvider, selectedModel);
+            const analysis = await analyzeFileApi(file, selectedProvider, selectedModel);
             setResult(analysis);
             refreshAnalyses();
         } catch (e) {

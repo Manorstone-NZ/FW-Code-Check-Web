@@ -5,7 +5,8 @@
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack serve --config webpack.config.js --mode development",
-    "test": "jest --config jest.config.js --passWithNoTests"
+    "test": "jest --config jest.config.js --passWithNoTests",
+    "serve": "npx serve public"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -52,6 +53,6 @@
   "bugs": {
     "url": "https://github.com/firstwatch/first-watch-plc-code-checker-v2/issues"
   },
-  "homepage": "https://firstwatchsecurity.com/first-watch-plc-code-checker-v2",
+  "homepage": "https://fw-code-check-web.onrender.com/",
   "license": "MIT"
 }

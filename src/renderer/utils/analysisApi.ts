@@ -131,9 +131,22 @@ export async function listComparisonHistory(analysisId?: number, baselineId?: nu
   return await window.electron.invoke('list-comparison-history', analysisId, baselineId);
 }
 
-export async function analyzeFile(filePath: string, provider?: string, model?: string) {
-    // @ts-ignore
-    return await window.electron.invoke('analyze-file', filePath, provider, model);
+export async function analyzeFile(file: File, provider?: string, model?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (provider) formData.append('provider', provider);
+    if (model) formData.append('model', model);
+    // Use relative path for local dev, or set REACT_APP_API_URL for production
+    const apiUrl = process.env.REACT_APP_API_URL || '/api/analyze';
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to analyze file');
+    }
+    return await response.json();
 }
 
 export async function syncOTThreatIntel(provider?: string) {
